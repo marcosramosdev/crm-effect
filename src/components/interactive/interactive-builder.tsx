@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export function InteractiveBuilder({
   onChange,
   showPreview = true,
 }: InteractiveBuilderProps) {
+  const t = useTranslations("Interactive");
   const [advanced, setAdvanced] = useState(false);
   const validation = validateInteractivePayload(value);
 
@@ -106,32 +108,32 @@ export function InteractiveBuilder({
           <div className="flex gap-2">
             <KindButton
               active={value.kind === "buttons"}
-              label="Reply buttons"
+              label={t("kindButtons")}
               onClick={() => switchKind("buttons")}
             />
             <KindButton
               active={value.kind === "list"}
-              label="List"
+              label={t("kindList")}
               onClick={() => switchKind("list")}
             />
           </div>
 
           <Field
-            label="Body"
+            label={t("bodyLabel")}
             counter={`${value.body.length}/${INTERACTIVE_LIMITS.bodyMaxLength}`}
           >
             <Textarea
               value={value.body}
               maxLength={INTERACTIVE_LIMITS.bodyMaxLength}
               onChange={(e) => setField({ body: e.target.value })}
-              placeholder="What the customer reads above the options"
+              placeholder={t("bodyPlaceholder")}
               className="bg-muted text-foreground min-h-20"
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-2">
             <Field
-              label="Header (optional)"
+              label={t("headerLabel")}
               counter={`${(value.header ?? "").length}/${INTERACTIVE_LIMITS.headerTextMaxLength}`}
             >
               <Input
@@ -142,7 +144,7 @@ export function InteractiveBuilder({
               />
             </Field>
             <Field
-              label="Footer (optional)"
+              label={t("footerLabel")}
               counter={`${(value.footer ?? "").length}/${INTERACTIVE_LIMITS.footerMaxLength}`}
             >
               <Input
@@ -171,7 +173,7 @@ export function InteractiveBuilder({
               onChange={(e) => setAdvanced(e.target.checked)}
               className="accent-primary h-3.5 w-3.5"
             />
-            Show reply IDs (advanced)
+            {t("showAdvanced")}
           </label>
 
           {!validation.ok && (
@@ -182,7 +184,7 @@ export function InteractiveBuilder({
         {showPreview && (
           <div className="flex shrink-0 flex-col gap-1.5 @2xl:w-[280px]">
             <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-              Preview
+              {t("previewLabel")}
             </span>
             <div className="bg-muted/40 rounded-lg p-3">
               <InteractivePreview payload={value} />
@@ -207,6 +209,7 @@ function ButtonsEditor({
   onChange: (p: InteractiveMessagePayload) => void;
   advanced: boolean;
 }) {
+  const t = useTranslations("Interactive");
   const buttons = value.buttons;
   const update = (
     idx: number,
@@ -236,7 +239,10 @@ function ButtonsEditor({
   return (
     <div>
       <label className="text-muted-foreground mb-2 block text-xs">
-        Buttons ({buttons.length}/{INTERACTIVE_LIMITS.maxButtons})
+        {t("buttonsLabel", {
+          count: buttons.length,
+          max: INTERACTIVE_LIMITS.maxButtons,
+        })}
       </label>
       <div className="flex flex-col gap-2">
         {buttons.map((b, i) => (
@@ -250,7 +256,7 @@ function ButtonsEditor({
                 onChange={(e) =>
                   update(i, { id: slugify(e.target.value, `btn_${i + 1}`) })
                 }
-                placeholder="id"
+                placeholder={t("buttonIdPlaceholder")}
                 className="bg-muted w-28 font-mono text-xs"
               />
             )}
@@ -258,7 +264,7 @@ function ButtonsEditor({
               value={b.title}
               maxLength={INTERACTIVE_LIMITS.buttonTitleMaxLength}
               onChange={(e) => update(i, { title: e.target.value })}
-              placeholder="Button label"
+              placeholder={t("buttonLabelPlaceholder")}
               className="bg-muted flex-1"
             />
             <span className="text-muted-foreground w-10 shrink-0 text-right text-[10px]">
@@ -280,7 +286,7 @@ function ButtonsEditor({
       {buttons.length < INTERACTIVE_LIMITS.maxButtons && (
         <Button variant="ghost" size="sm" onClick={add} className="mt-2">
           <Plus className="h-3.5 w-3.5" />
-          Add button
+          {t("addButton")}
         </Button>
       )}
     </div>
@@ -300,6 +306,7 @@ function ListEditor({
   onChange: (p: InteractiveMessagePayload) => void;
   advanced: boolean;
 }) {
+  const t = useTranslations("Interactive");
   const sections = value.sections;
   const totalRows = sections.reduce((n, s) => n + s.rows.length, 0);
   const allRowIds = () => sections.flatMap((s) => s.rows.map((r) => r.id));
@@ -361,7 +368,7 @@ function ListEditor({
   return (
     <div className="flex flex-col gap-3">
       <Field
-        label="List button label"
+        label={t("listButtonLabelLabel")}
         counter={`${value.button_label.length}/${INTERACTIVE_LIMITS.buttonTitleMaxLength}`}
       >
         <Input
@@ -373,7 +380,10 @@ function ListEditor({
       </Field>
 
       <label className="text-muted-foreground block text-xs">
-        Rows ({totalRows}/{INTERACTIVE_LIMITS.maxListRowsTotal})
+        {t("rowsLabel", {
+          count: totalRows,
+          max: INTERACTIVE_LIMITS.maxListRowsTotal,
+        })}
       </label>
 
       {sections.map((section, sIdx) => (
@@ -385,7 +395,7 @@ function ListEditor({
             <Input
               value={section.title ?? ""}
               onChange={(e) => updateSection(sIdx, { title: e.target.value })}
-              placeholder="Section title (optional)"
+              placeholder={t("sectionTitlePlaceholder")}
               className="bg-muted flex-1 text-xs"
             />
             {sections.length > 1 && (
@@ -414,7 +424,7 @@ function ListEditor({
                           id: slugify(e.target.value, `row_${rIdx + 1}`),
                         })
                       }
-                      placeholder="id"
+                      placeholder={t("rowIdPlaceholder")}
                       className="bg-muted w-24 font-mono text-xs"
                     />
                   )}
@@ -424,7 +434,7 @@ function ListEditor({
                     onChange={(e) =>
                       updateRow(sIdx, rIdx, { title: e.target.value })
                     }
-                    placeholder="Row title"
+                    placeholder={t("rowTitlePlaceholder")}
                     className="bg-muted flex-1"
                   />
                   <span className="text-muted-foreground w-10 shrink-0 text-right text-[10px]">
@@ -448,7 +458,7 @@ function ListEditor({
                   onChange={(e) =>
                     updateRow(sIdx, rIdx, { description: e.target.value })
                   }
-                  placeholder="Description (optional)"
+                  placeholder={t("rowDescPlaceholder")}
                   className="bg-muted mt-2 text-xs"
                 />
               </div>
@@ -462,7 +472,7 @@ function ListEditor({
               className="mt-2"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add row
+              {t("addRow")}
             </Button>
           )}
         </div>
@@ -472,7 +482,7 @@ function ListEditor({
         totalRows < INTERACTIVE_LIMITS.maxListRowsTotal && (
           <Button variant="ghost" size="sm" onClick={addSection}>
             <Plus className="h-3.5 w-3.5" />
-            Add section
+            {t("addSection")}
           </Button>
         )}
     </div>

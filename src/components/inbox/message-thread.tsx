@@ -27,7 +27,8 @@ import {
   PanelRightClose,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { dateFnsLocale } from "@/i18n/date-fns-locale";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,11 +106,12 @@ interface MessageThreadProps {
 function formatDateSeparator(
   dateStr: string,
   t: ReturnType<typeof useTranslations>,
+  locale: string,
 ): string {
   const date = new Date(dateStr);
   if (isToday(date)) return t("today");
   if (isYesterday(date)) return t("yesterday");
-  return format(date, "MMMM d, yyyy");
+  return format(date, "MMMM d, yyyy", { locale: dateFnsLocale(locale) });
 }
 
 function groupMessagesByDate(messages: Message[]) {
@@ -168,6 +170,7 @@ export function MessageThread({
 }: MessageThreadProps) {
   const t = useTranslations("Inbox.messageThread");
   const tQuote = useTranslations("Inbox.replyQuote");
+  const locale = useLocale();
 
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
@@ -1004,7 +1007,7 @@ export function MessageThread({
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
                   <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
-                    {formatDateSeparator(group.date, t)}
+                    {formatDateSeparator(group.date, t, locale)}
                   </span>
                 </div>
                 {/* Messages */}

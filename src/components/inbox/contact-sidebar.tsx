@@ -34,7 +34,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { dateFnsLocale } from "@/i18n/date-fns-locale";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -44,6 +45,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
   const tStage = useTranslations("Inbox.stagePicker");
+  const locale = useLocale();
 
   const { accountId } = useAuth();
   // Read-only members see stages, but can't change them (roles.ts: agent+
@@ -538,7 +540,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                       {note.note_text}
                     </p>
                     <p className="text-muted-foreground mt-1 text-[10px]">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
+                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm", {
+                        locale: dateFnsLocale(locale),
+                      })}
                     </p>
                   </div>
                 ))}

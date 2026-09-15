@@ -16,8 +16,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
+import { dateFnsLocale } from "@/i18n/date-fns-locale";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -222,6 +223,7 @@ function RunCard({
   onToggle: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const locale = useLocale();
   const meta = STATUS_META[run.status];
   const StatusIcon = meta.icon;
   const contactLabel =
@@ -229,6 +231,7 @@ function RunCard({
   const duration = run.ended_at
     ? formatDistanceToNow(new Date(run.ended_at), {
         addSuffix: false,
+        locale: dateFnsLocale(locale),
       })
     : null;
   return (
@@ -272,7 +275,11 @@ function RunCard({
           </div>
           <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2 text-[11px]">
             <span>
-              {t("started", { time: format(new Date(run.started_at), "PP p") })}
+              {t("started", {
+                time: format(new Date(run.started_at), "PP p", {
+                  locale: dateFnsLocale(locale),
+                }),
+              })}
             </span>
             {run.reprompt_count > 0 && (
               <span>· {t("reprompts", { count: run.reprompt_count })}</span>
@@ -319,11 +326,14 @@ const EVENT_COLOR: Record<string, string> = {
 };
 
 function EventLine({ ev }: { ev: EventRow }) {
+  const locale = useLocale();
   const cls = EVENT_COLOR[ev.event_type] ?? "text-muted-foreground";
   return (
     <div className="flex items-start gap-2 rounded-md px-2 py-1 text-xs">
       <span className="text-muted-foreground w-32 shrink-0 text-[10px]">
-        {format(new Date(ev.created_at), "HH:mm:ss")}
+        {format(new Date(ev.created_at), "HH:mm:ss", {
+          locale: dateFnsLocale(locale),
+        })}
       </span>
       <span className={cn("w-32 shrink-0 font-mono text-[10px]", cls)}>
         {ev.event_type}

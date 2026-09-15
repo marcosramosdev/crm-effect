@@ -23,7 +23,8 @@ import {
   MediaVideoBubble,
 } from "./message-media";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { dateFnsLocale } from "@/i18n/date-fns-locale";
 
 interface MessageBubbleProps {
   message: Message;
@@ -229,10 +230,13 @@ export function MessageBubble({
   onOpenMedia,
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
+  const locale = useLocale();
 
   const isAgent =
     message.sender_type === "agent" || message.sender_type === "bot";
-  const time = format(new Date(message.created_at), "HH:mm");
+  const time = format(new Date(message.created_at), "HH:mm", {
+    locale: dateFnsLocale(locale),
+  });
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
