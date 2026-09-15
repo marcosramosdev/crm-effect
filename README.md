@@ -5,14 +5,6 @@ pipelines, broadcasts, and no-code automations over WhatsApp. Standalone
 repo: everything the app needs lives here, with Supabase as the only
 external service.
 
-> **⚠️ Unofficial WhatsApp API.** This app connects through
-> [UAZAPI](https://uazapi.com), which pairs to an ordinary WhatsApp
-> (Business) account rather than going through Meta's official Cloud
-> API. This gets you free-form messaging with no template-approval
-> queue and no 24-hour session window, but it's unofficial: WhatsApp
-> can ban a number used this way, and there is no way to mitigate that
-> in code. Use a WhatsApp **Business** account, not your personal
-> number, and treat the risk as yours before connecting.
 
 ## What's in here
 
@@ -47,8 +39,7 @@ external service.
 - **App** — Next.js 16 (App Router), React 19, TypeScript, Tailwind v4.
 - **Data** — Supabase (Postgres + Auth + Storage + RLS). Apply the database
   schema (migrations/seed) to your own Supabase project with the Supabase CLI.
-- **WhatsApp** — [UAZAPI](https://uazapi.com) (unofficial gateway; QR or
-  pairing-code login, no Business verification or template review).
+- **WhatsApp** — [UAZAPI](https://uazapi.com) 
 
 ## Dev
 
