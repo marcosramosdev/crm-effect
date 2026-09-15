@@ -2,13 +2,12 @@
   "name": "@effect/crm",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-hostable CRM template for WhatsApp built on Next.js and Supabase — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+  "description": "CRM Effect is a self-hosted CRM template built with Next.js, Supabase, and the WhatsApp Business API. It provides a comprehensive solution for managing customer relationships, automating workflows, and broadcasting messages through WhatsApp.",
   "license": "MIT",
-  "author": "Arnas Donauskas",
+  "author": "Marcos Ramos",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/marcosramosdev/monorepo-z7.git",
-    "directory": "apps/crm"
+    "url": "https://github.com/marcosramosdev/crm-effect"
   },
   "keywords": [
     "crm",
@@ -64,7 +63,6 @@
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@z7/config": "workspace:*",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "prettier": "^3.9.6",

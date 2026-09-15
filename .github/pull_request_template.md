@@ -18,9 +18,9 @@ How did you verify this works? How should the reviewer verify it?
 Tick the boxes as you go.
 -->
 
-- [ ] `bun run --filter @z7/crm typecheck` clean.
-- [ ] `bun run --filter @z7/crm lint` — no new errors beyond the pre-existing backlog.
-- [ ] `bun run --filter @z7/crm build` succeeds.
+- [ ] `npm run typecheck` clean.
+- [ ] `npm run lint` — no new errors beyond the pre-existing backlog.
+- [ ] `npm run build` succeeds.
 - [ ] Feature / fix manually exercised in the browser (or the reason it can't be).
 
 ## Related

@@ -1,9 +1,9 @@
 # @effect/crm
 
 The EFFECT DIGITAL commercial system (CRM) — shared inbox, contacts, sales
-pipelines, broadcasts, and no-code automations over WhatsApp. Part of the
-[monorepo](../../README.md); see the root `AGENTS.md` for how this app fits
-with the rest of the platform.
+pipelines, broadcasts, and no-code automations over WhatsApp. Standalone
+repo: everything the app needs lives here, with Supabase as the only
+external service.
 
 > **⚠️ Unofficial WhatsApp API.** This app connects through
 > [UAZAPI](https://uazapi.com), which pairs to an ordinary WhatsApp
@@ -45,21 +45,19 @@ with the rest of the platform.
 ## Stack
 
 - **App** — Next.js 16 (App Router), React 19, TypeScript, Tailwind v4.
-- **Data** — Supabase (Postgres + Auth + Storage + RLS). Migrations live at
-  [`packages/db/supabase/migrations`](../../packages/db/supabase/migrations),
-  not here — see the root `AGENTS.md`.
+- **Data** — Supabase (Postgres + Auth + Storage + RLS). Apply the database
+  schema (migrations/seed) to your own Supabase project with the Supabase CLI.
 - **WhatsApp** — [UAZAPI](https://uazapi.com) (unofficial gateway; QR or
   pairing-code login, no Business verification or template review).
 
 ## Dev
 
-This app is a workspace in the bun monorepo — install and run from the
-repo root, not from here:
+This is a standalone Next.js repo — install and run from here:
 
 ```bash
-bun install                        # from the repo root
-cp apps/crm/.env.local.example apps/crm/.env.local   # fill in Supabase + UAZAPI creds
-bun run --filter @effect/crm dev
+npm install
+cp .env.local.example .env.local   # fill in Supabase + UAZAPI creds
+npm run dev
 ```
 
 Open <http://localhost:3000>. You'll be redirected to `/login` (or
