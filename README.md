@@ -1,8 +1,9 @@
-# @z7/crm
+# @effect/crm
 
-The zero7IA CRM — shared inbox, contacts, sales pipelines, broadcasts, and
-no-code automations over WhatsApp. Part of the [z7 monorepo](../../README.md);
-see the root `AGENTS.md` for how this app fits with the rest of the platform.
+The EFFECT DIGITAL commercial system (CRM) — shared inbox, contacts, sales
+pipelines, broadcasts, and no-code automations over WhatsApp. Part of the
+[monorepo](../../README.md); see the root `AGENTS.md` for how this app fits
+with the rest of the platform.
 
 > **⚠️ Unofficial WhatsApp API.** This app connects through
 > [UAZAPI](https://uazapi.com), which pairs to an ordinary WhatsApp
@@ -52,13 +53,13 @@ see the root `AGENTS.md` for how this app fits with the rest of the platform.
 
 ## Dev
 
-This app is a workspace in the z7 bun monorepo — install and run from the
+This app is a workspace in the bun monorepo — install and run from the
 repo root, not from here:
 
 ```bash
 bun install                        # from the repo root
 cp apps/crm/.env.local.example apps/crm/.env.local   # fill in Supabase + UAZAPI creds
-bun run --filter @z7/crm dev
+bun run --filter @effect/crm dev
 ```
 
 Open <http://localhost:3000>. You'll be redirected to `/login` (or
