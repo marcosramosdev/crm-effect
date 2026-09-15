@@ -50,6 +50,14 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
+  // Root path - send straight to destination instead of bouncing through
+  // /dashboard first (which would then redirect again to /login).
+  if (request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = user ? "/dashboard" : "/login";
+    return withRefreshedCookies(NextResponse.redirect(url));
+  }
+
   // Auth pages - redirect to dashboard if already logged in.
   // Exception: when an invite token is in the query string we
   // send the already-signed-in user to /join/<token> instead so

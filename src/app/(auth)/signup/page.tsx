@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+import { MessageSquare, UsersRound } from "lucide-react";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
@@ -29,10 +29,8 @@ export default function SignupPage() {
 function SignupPageInner() {
   const searchParams = useSearchParams();
   // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
+  // invite token in the query so we can send them to the join page
+  // (instead of /dashboard) once their account is created.
   const inviteToken = searchParams.get("invite");
 
   const [fullName, setFullName] = useState("");
@@ -41,7 +39,6 @@ function SignupPageInner() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -60,14 +57,6 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
-
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -75,7 +64,6 @@ function SignupPageInner() {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
       },
     });
 
@@ -85,47 +73,14 @@ function SignupPageInner() {
       return;
     }
 
-    setSuccess(true);
-    setLoading(false);
+    // Email confirmation is off, so signUp() already returns an active
+    // session. Full-page navigation (not router.push) so the browser
+    // issues a fresh request carrying the new auth cookies to the
+    // middleware — mirrors /login (issue #365).
+    window.location.href = inviteToken
+      ? `/join/${encodeURIComponent(inviteToken)}`
+      : "/dashboard";
   };
-
-  if (success) {
-    return (
-      <div className="bg-background flex min-h-screen items-center justify-center px-4">
-        <Card className="border-border bg-card w-full max-w-md">
-          <CardHeader className="items-center text-center">
-            <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
-              <CheckCircle className="text-primary h-6 w-6" />
-            </div>
-            <CardTitle className="text-foreground text-xl">
-              Check your email
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="text-foreground">{email}</span>. Please check
-              your inbox and click the link to verify your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-            >
-              <Button
-                variant="outline"
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
-              >
-                Back to sign in
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-background flex min-h-screen items-center justify-center px-4">

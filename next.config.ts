@@ -76,7 +76,6 @@ const nextConfig: NextConfig = {
    * the HMR websocket, the dev overlay) unless the browser's Origin is
    * the host the dev server booted on — `localhost` by default. Tunnels
    * like ngrok serve the app from a public HTTPS host, so without
-   * allow-listing that host those dev requests come back 403: HMR stops
    * working and the dev session degrades over the tunnel (issue #365).
    *
    * Wildcards match subdomains only (Next's CSRF matcher), so the
