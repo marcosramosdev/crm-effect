@@ -8,11 +8,12 @@
  */
 
 /**
- * Broadcasts, Automations, Flows, and AI Agents are incomplete. They stay
- * in the codebase but are hidden from operators and their routes are
- * blocked unless this is explicitly turned on. Any value other than the
- * literal string "true" counts as off, so a deployment that sets nothing
- * exposes none of them.
+ * Broadcasts, Automations, and Flows are incomplete. They stay in the
+ * codebase but are hidden from operators and their routes are blocked
+ * unless this is explicitly turned on. Any value other than the literal
+ * string "true" counts as off, so a deployment that sets nothing exposes
+ * none of them. The AI assistant (`/agents`) is finished and is never
+ * part of this set — it's reachable regardless of this switch.
  */
 export const INCOMPLETE_FEATURES_ENABLED =
   process.env.NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED === "true";
@@ -26,7 +27,6 @@ export const GATED_FEATURE_PREFIXES = [
   "/broadcasts",
   "/automations",
   "/flows",
-  "/agents",
 ] as const;
 
 /** True when `pathname` falls under a gated feature route. */

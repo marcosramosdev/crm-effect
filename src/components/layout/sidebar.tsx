@@ -9,6 +9,7 @@ import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
+  Bot,
   Calendar,
   Crown,
   GitBranch,
@@ -87,6 +88,10 @@ const navItems: NavItem[] = [
   { href: "/contacts", labelKey: "contacts", icon: Users },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
   { href: "/calendar", labelKey: "calendar", icon: Calendar },
+  // Not part of the gated set — reachable regardless of
+  // NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED, unlike Broadcasts/
+  // Automations/Flows (whose entries stay out of this list while gated).
+  { href: "/agents", labelKey: "aiAgents", icon: Bot },
 ];
 
 const bottomNavItems = [

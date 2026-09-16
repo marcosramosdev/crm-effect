@@ -8,6 +8,13 @@
 
 export type AiProvider = "openai" | "anthropic";
 
+/** The account's default tone for generated messages. */
+export type FollowupStyle =
+  | "friendly"
+  | "direct"
+  | "consultative"
+  | "slot_reminder";
+
 /**
  * Account AI setup, decrypted and ready to use. Produced by
  * `loadAiConfig` — `apiKey` is the plaintext BYO provider key
@@ -21,6 +28,8 @@ export interface AiConfig {
   isActive: boolean;
   autoReplyEnabled: boolean;
   autoReplyMaxPerConversation: number;
+  /** Default communication style applied to every generated message. */
+  followupStyle: FollowupStyle;
   /** Where auto-reply hands a conversation off when the model bails: an
    *  agent's `auth.users.id`, or null to leave it unassigned (drop into
    *  the shared queue). */

@@ -79,6 +79,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     isActive: true,
     autoReplyEnabled: true,
     autoReplyMaxPerConversation: 3,
+    followupStyle: "friendly",
     handoffAgentId: null,
     embeddingsApiKey: null,
     ...overrides,
@@ -153,6 +154,14 @@ describe("dispatchInboundToAiReply — eligibility gates", () => {
     h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false }));
     await dispatchInboundToAiReply(ARGS);
     expect(h.engineSendText).not.toHaveBeenCalled();
+  });
+
+  it("still replies when is_active (drafts) is false and auto-reply is on", async () => {
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ isActive: false, autoReplyEnabled: true }),
+    );
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).toHaveBeenCalled();
   });
 
   it("skips when a human agent is assigned", async () => {
