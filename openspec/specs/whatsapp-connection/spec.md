@@ -16,6 +16,11 @@ its identifier and instance token. Provisioning SHALL use an operator-supplied
 server admin credential that is never exposed to the browser or to any
 non-owner role.
 
+Provisioning MAY happen ahead of the client's first visit to the connection
+screen, as part of creating the account. When an instance already exists, the
+connection screen SHALL go straight to login — the client's first action is
+scanning the code, not asking for an instance.
+
 #### Scenario: First connection provisions an instance
 
 - **WHEN** an account with no WhatsApp configuration starts the connection flow
@@ -28,6 +33,12 @@ non-owner role.
 - **WHEN** an account that already has a stored instance starts the connection
   flow again
 - **THEN** the system reuses the stored instance instead of creating a new one
+
+#### Scenario: Pre-provisioned account goes straight to login
+
+- **WHEN** the client of an account whose instance was created during account
+  provisioning opens the connection screen for the first time
+- **THEN** a login code is offered without creating a second instance
 
 #### Scenario: Admin credential is not configured
 
