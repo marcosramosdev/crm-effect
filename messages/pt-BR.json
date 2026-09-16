@@ -846,6 +846,8 @@
       "saveChanges": "Salvar Alterações",
       "dragToReorder": "Arraste para reordenar",
       "changeColor": "Mudar cor",
+      "systemStageExplanation": "Esta é a etapa de entrada onde todo novo lead cai — não pode ser renomeada, reordenada ou excluída.",
+      "toastSystemStageProtected": "Essa é a etapa do sistema — não pode ser renomeada, reordenada ou excluída.",
       "toastFailedSave": "Falha ao salvar funil",
       "toastSaved": "Funil salvo",
       "toastFailedAddStage": "Falha ao adicionar etapa",
@@ -1886,5 +1888,39 @@
         "checkbox": "Caixa de seleção"
       }
     }
+  },
+  "PasswordBanner": {
+    "title": "Altere sua senha",
+    "desc": "Um operador da Effect definiu sua senha inicial.",
+    "changePassword": "Alterar agora",
+    "dismiss": "Dispensar"
+  },
+  "AdminConsole": {
+    "title": "Provisionar conta de cliente",
+    "desc": "Um envio cria o login, a conta, o funil, a instância do WhatsApp, o assistente e as credenciais de anúncios.",
+    "clinicName": "Nome da clínica",
+    "clientFullName": "Nome completo do cliente",
+    "clientEmail": "E-mail do cliente",
+    "clientPassword": "Senha do cliente",
+    "specialty": "Especialidade",
+    "specialties": {
+      "dentist": "Dentista",
+      "physician": "Médico",
+      "psychologist": "Psicólogo"
+    },
+    "persona": "Persona do assistente",
+    "metaDatasetId": "ID do dataset da Meta",
+    "metaAccessToken": "Token de acesso da Meta",
+    "submit": "Provisionar conta",
+    "submitting": "Provisionando...",
+    "successTitle": "Conta provisionada",
+    "successDesc": "Entregue estas informações ao cliente pelo seu próprio canal — elas não serão mostradas novamente.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "clipboardBlocked": "Não foi possível copiar — copie manualmente",
+    "provisionAnother": "Provisionar outra conta",
+    "failedStep": "Falhou na etapa: {step}",
+    "cleanupIncomplete": "Limpeza incompleta — remova manualmente: usuário {authUserId}, conta {accountId}",
+    "networkError": "Não foi possível conectar ao servidor. Tentar novamente?"
   }
 }

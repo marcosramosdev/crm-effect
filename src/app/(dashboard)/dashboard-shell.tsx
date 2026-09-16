@@ -7,6 +7,7 @@ import { WhatsAppConnectionProvider } from "@/hooks/use-whatsapp-connection";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
+import { PasswordBanner } from "@/components/layout/password-banner";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
@@ -58,6 +59,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             {/* Above every page: writes are being rejected and here's why.
                 Renders nothing unless the account/role failed to resolve. */}
             <AccountAccessAlert />
+            {/* Suggests changing an operator-delivered password. Renders
+                nothing once dismissed or the password has been changed. */}
+            <PasswordBanner />
             {children}
           </main>
         </div>

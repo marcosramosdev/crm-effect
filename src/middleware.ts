@@ -4,6 +4,7 @@ import {
   INCOMPLETE_FEATURES_ENABLED,
   isGatedFeaturePath,
 } from "@/lib/feature-flags";
+import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -84,6 +85,41 @@ export async function middleware(request: NextRequest) {
       url.search = "";
     }
     return withRefreshedCookies(NextResponse.redirect(url));
+  }
+
+  // Public self-service signup is closed unless a team invitation
+  // token is present (client-provisioning spec, "Sign-up without an
+  // invitation is refused"). A signed-in visitor at /signup is already
+  // redirected above regardless of the invite param.
+  if (
+    !user &&
+    request.nextUrl.pathname === "/signup" &&
+    !request.nextUrl.searchParams.get("invite")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    return withRefreshedCookies(NextResponse.redirect(url));
+  }
+
+  // Internal provisioning console — gated by PLATFORM_ADMINS, not any
+  // account role. A non-listed session gets the same treatment as a
+  // gated feature path, so /admin is indistinguishable from a route
+  // that doesn't exist (client-provisioning spec, "Ordinary client
+  // owner is turned away").
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      return withRefreshedCookies(NextResponse.redirect(url));
+    }
+    if (!isPlatformAdmin(user.email)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return withRefreshedCookies(NextResponse.redirect(url));
+    }
   }
 
   // Protected pages - redirect to login if not authenticated
