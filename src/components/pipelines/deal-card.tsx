@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/popover";
 import { formatCurrency } from "@/lib/currency";
 import { useCan } from "@/hooks/use-can";
+import { useAuth } from "@/hooks/use-auth";
+import { fromZonedInputValue, toZonedInputValue } from "@/lib/time/account-tz";
 import { useTranslations } from "next-intl";
 
 interface DealCardProps {
@@ -25,7 +27,7 @@ interface DealCardProps {
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
   isOverlay?: boolean;
-  /** Persist an inline title / value / close-date edit. Optimistic +
+  /** Persist an inline title / value / schedule edit. Optimistic +
    *  revert is the caller's job; resolves `true` on success. Absent →
    *  no inline edit. */
   onInlineSave?: (
@@ -33,10 +35,10 @@ interface DealCardProps {
     patch: {
       title?: string;
       value?: number;
-      expected_close_date?: string | null;
+      scheduled_at?: string | null;
     },
   ) => Promise<boolean>;
-  /** Told when inline editing (title/value form, close-date popover, or
+  /** Told when inline editing (title/value form, schedule popover, or
    *  the archive confirm strip) starts / stops so the draggable wrapper
    *  can drop its drag listeners while a control is active. */
   onEditingChange?: (editing: boolean) => void;
@@ -50,11 +52,14 @@ interface DealCardProps {
   variant?: "default" | "archived";
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+/** Render a stored UTC instant as the booked time of day, in `timeZone`. */
+function formatScheduled(iso: string, timeZone: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone,
     month: "short",
     day: "numeric",
-    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -77,6 +82,7 @@ export function DealCard({
 }: DealCardProps) {
   const t = useTranslations("Pipelines.card");
   const canEdit = useCan("send-messages");
+  const { timeZone } = useAuth();
   const isArchivedView = variant === "archived";
   const contactLabel =
     deal.contact?.name || deal.contact?.phone || t("noContact");
@@ -88,9 +94,11 @@ export function DealCard({
   const [saving, setSaving] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Close-date popover.
+  // Schedule popover.
   const [dateOpen, setDateOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(deal.expected_close_date ?? "");
+  const [draftScheduled, setDraftScheduled] = useState(
+    deal.scheduled_at ? toZonedInputValue(deal.scheduled_at, timeZone) : "",
+  );
   const [savingDate, setSavingDate] = useState(false);
 
   // Archive confirm strip (mirrors deal-form.tsx's delete confirm).
@@ -141,15 +149,20 @@ export function DealCard({
     setEditing(false);
   }
 
-  async function commitDate(next: string | null) {
+  async function commitSchedule(nextIso: string | null) {
     if (!onInlineSave) return;
-    const current = deal.expected_close_date ?? null;
-    if ((next ?? null) === current) {
+    const currentIso = deal.scheduled_at ?? null;
+    const unchanged =
+      nextIso === currentIso ||
+      (nextIso !== null &&
+        currentIso !== null &&
+        new Date(nextIso).getTime() === new Date(currentIso).getTime());
+    if (unchanged) {
       setDateOpen(false);
       return;
     }
     setSavingDate(true);
-    await onInlineSave(deal.id, { expected_close_date: next });
+    await onInlineSave(deal.id, { scheduled_at: nextIso });
     setSavingDate(false);
     setDateOpen(false);
   }
@@ -276,10 +289,10 @@ export function DealCard({
             <h4 className="text-foreground flex-1 text-sm leading-snug font-semibold break-words">
               {deal.title}
             </h4>
-            {deal.status === "won" && (
+            {deal.status === "qualified" && (
               <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
                 <Check className="h-3 w-3" />
-                {t("won")}
+                {t("qualified")}
               </span>
             )}
             {deal.status === "lost" && (
@@ -308,7 +321,12 @@ export function DealCard({
               <Popover
                 open={dateOpen}
                 onOpenChange={(o) => {
-                  if (o) setDraftDate(deal.expected_close_date ?? "");
+                  if (o)
+                    setDraftScheduled(
+                      deal.scheduled_at
+                        ? toZonedInputValue(deal.scheduled_at, timeZone)
+                        : "",
+                    );
                   setDateOpen(o);
                 }}
               >
@@ -322,12 +340,12 @@ export function DealCard({
                   }
                 >
                   <Calendar className="h-3 w-3" />
-                  {deal.expected_close_date ? (
-                    formatDate(deal.expected_close_date)
+                  {deal.scheduled_at ? (
+                    formatScheduled(deal.scheduled_at, timeZone)
                   ) : (
                     <span className="inline-flex items-center gap-0.5">
                       <Plus className="h-2.5 w-2.5" />
-                      {t("setCloseDate")}
+                      {t("setSchedule")}
                     </span>
                   )}
                 </PopoverTrigger>
@@ -337,33 +355,33 @@ export function DealCard({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <input
-                    type="date"
+                    type="datetime-local"
                     autoFocus
-                    value={draftDate}
+                    value={draftScheduled}
                     disabled={savingDate}
                     onChange={(e) => {
                       const v = e.target.value;
-                      setDraftDate(v);
-                      if (v) void commitDate(v);
+                      setDraftScheduled(v);
+                      if (v) void commitSchedule(fromZonedInputValue(v, timeZone));
                     }}
-                    aria-label={t("closeDateAria")}
+                    aria-label={t("scheduleAria")}
                     className="border-border bg-background text-foreground focus:border-primary rounded-md border px-2 py-1 text-sm outline-none"
                   />
                   <button
                     type="button"
-                    disabled={savingDate || !deal.expected_close_date}
-                    onClick={() => void commitDate(null)}
+                    disabled={savingDate || !deal.scheduled_at}
+                    onClick={() => void commitSchedule(null)}
                     className="text-muted-foreground hover:text-foreground text-xs disabled:opacity-40"
                   >
-                    {t("clearCloseDate")}
+                    {t("clearSchedule")}
                   </button>
                 </PopoverContent>
               </Popover>
             ) : (
-              deal.expected_close_date && (
+              deal.scheduled_at && (
                 <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
                   <Calendar className="h-3 w-3" />
-                  {formatDate(deal.expected_close_date)}
+                  {formatScheduled(deal.scheduled_at, timeZone)}
                 </span>
               )
             )}

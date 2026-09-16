@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
+import { DEFAULT_TIMEZONE } from "@/lib/time/account-tz";
 import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
@@ -43,6 +44,10 @@ interface AccountSummary {
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
    *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
   default_currency: string;
+  /** IANA timezone scheduled times are read against. NOT NULL DEFAULT
+   *  'America/Sao_Paulo' in the DB (migration 044); narrowed to
+   *  DEFAULT_TIMEZONE when absent. */
+  timezone: string;
 }
 
 /**
@@ -116,6 +121,10 @@ interface AuthContextValue {
    *  while loading or when no account is resolved, so callers can use
    *  it unconditionally. */
   defaultCurrency: string;
+  /** Account IANA timezone. Falls back to DEFAULT_TIMEZONE while
+   *  loading or when no account is resolved, so callers can use it
+   *  unconditionally. */
+  timeZone: string;
   /** True if `accountRole === 'owner'`. */
   isOwner: boolean;
   /** True if `accountRole === 'admin'` (does NOT include owner — use canManageMembers for "admin or above"). */
@@ -237,9 +246,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.account_id) {
           const { data: account, error: accountErr } = await supabase
             .from("accounts")
-            // default_currency added in migration 021; narrowed to the
-            // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
+            // default_currency added in migration 021, timezone in 044;
+            // both narrowed to their fallback below for older schemas
+            // where they read null.
+            .select("id, name, default_currency, timezone")
             .eq("id", data.account_id)
             .maybeSingle();
           if (accountErr) {
@@ -254,6 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
+              timezone: account.timezone ?? DEFAULT_TIMEZONE,
             };
           }
         }
@@ -439,6 +450,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         account,
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
+        timeZone: account?.timezone ?? DEFAULT_TIMEZONE,
         accountStatus,
         accountStatusDetail: statusDetail,
         ...derived,
@@ -471,6 +483,7 @@ export function useAuth(): AuthContextValue {
       refreshProfile: async () => {},
       account: null,
       defaultCurrency: DEFAULT_CURRENCY,
+      timeZone: DEFAULT_TIMEZONE,
       // Outside the provider there is nothing to resolve yet — 'loading'
       // keeps the access alert from firing on, say, the login page.
       accountStatus: "loading",
