@@ -1,12 +1,4 @@
-# Feature Availability Specification
-
-## Purpose
-
-Governs which in-progress product areas are exposed to operators, so that
-features whose implementation is incomplete can stay in the codebase without
-being reachable in the running product.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Unfinished features are gated behind a single switch
 
@@ -38,6 +30,8 @@ incomplete-features switch SHALL affect whether the assistant is available.
   again with it on
 - **THEN** the AI assistant is reachable in both cases and its presence in the
   navigation is identical
+
+## MODIFIED Requirements
 
 ### Requirement: No operator entry points to gated features
 
@@ -86,3 +80,16 @@ the feature. `/agents` SHALL NOT be redirected under any value of the switch.
 - **WHEN** an authenticated operator navigates directly to `/agents` with the
   switch off
 - **THEN** the AI assistant page renders with no redirect
+
+## REMOVED Requirements
+
+### Requirement: Incomplete features are gated behind a single switch
+
+**Reason**: The gated set shrank from four features to three — the AI assistant
+leaves it and is always available. Restated as "Unfinished features are gated
+behind a single switch" above, which drops AI Agents and states the exclusion
+explicitly.
+
+**Migration**: None. `NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED` keeps its name
+and its meaning for the three remaining features; a deployment that already
+sets it needs no change.

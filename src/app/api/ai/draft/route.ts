@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         status: 400,
       });
     });
-    if (!config) {
+    if (!config || !config.isActive) {
       return NextResponse.json(
         {
           error:
@@ -114,6 +114,7 @@ export async function POST(request: Request) {
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: "draft",
+      style: config.followupStyle,
       knowledge,
     });
 

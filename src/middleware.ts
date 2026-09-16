@@ -107,10 +107,12 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url));
   }
 
-  // Incomplete features (Broadcasts, Automations, Flows, AI Agents) are
-  // hidden from operators by default — their code stays in the tree, but
-  // typing or bookmarking the URL bounces to the dashboard. Runs after the
-  // auth check so an unauthenticated hit still goes to /login first.
+  // Incomplete features (Broadcasts, Automations, Flows) are hidden from
+  // operators by default — their code stays in the tree, but typing or
+  // bookmarking the URL bounces to the dashboard. The AI assistant
+  // (/agents) is not part of this set and is never redirected. Runs
+  // after the auth check so an unauthenticated hit still goes to /login
+  // first.
   if (
     !INCOMPLETE_FEATURES_ENABLED &&
     isGatedFeaturePath(request.nextUrl.pathname)

@@ -109,6 +109,7 @@ export async function dispatchInboundToAiReply(
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: "auto_reply",
+      style: config.followupStyle,
       knowledge,
     });
 
