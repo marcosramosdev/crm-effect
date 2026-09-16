@@ -56,7 +56,7 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
 
   const stats = useMemo(() => {
     const active = deals.filter((d) => d.status !== "lost");
-    const openDeals = active.filter((d) => d.status !== "won");
+    const openDeals = active.filter((d) => d.status !== "qualified");
 
     const totalCount = active.length;
     const totalValue = active.reduce((sum, d) => sum + Number(d.value || 0), 0);
@@ -77,7 +77,7 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
       return ts ? new Date(ts) >= monthStart : false;
     };
     const wonThisMonth = deals.filter(
-      (d) => d.status === "won" && thisMonth(d),
+      (d) => d.status === "qualified" && thisMonth(d),
     ).length;
     const lostThisMonth = deals.filter(
       (d) => d.status === "lost" && thisMonth(d),
@@ -126,9 +126,9 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
         />
         <Metric
           icon={<Trophy className="text-primary h-4 w-4" />}
-          label={t("wonThisMonth")}
+          label={t("qualifiedThisMonth")}
           value={String(stats.wonThisMonth)}
-          tooltip={t("wonThisMonthTooltip")}
+          tooltip={t("qualifiedThisMonthTooltip")}
           t={t}
         />
         <Metric

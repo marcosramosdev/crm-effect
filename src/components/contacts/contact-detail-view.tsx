@@ -765,7 +765,7 @@ export function ContactDetailView({
                             {deal.status && deal.status !== "open" && (
                               <span
                                 className={
-                                  deal.status === "won"
+                                  deal.status === "qualified"
                                     ? "text-primary"
                                     : "text-red-400"
                                 }

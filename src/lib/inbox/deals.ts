@@ -29,15 +29,15 @@ export async function moveDealStage(
 
 /**
  * Persist a small edit to a deal's own columns (inline board-card
- * editing: title, value, and/or expected close date). Like
+ * editing: title, value, and/or scheduled appointment time). Like
  * `moveDealStage` this is only the write — the caller owns the
  * optimistic UI update and the revert on failure — so the board card
  * and any future inline surface share one persistence path.
  *
  * The patch type is kept deliberately narrow: the body spreads it
  * straight into `.update()`, so the TypeScript shape is the only guard
- * on what a caller can write. `expected_close_date` accepts a
- * `YYYY-MM-DD` string or `null` to clear it.
+ * on what a caller can write. `scheduled_at` accepts a UTC ISO instant
+ * or `null` to clear it.
  */
 export async function updateDealInline(
   db: SupabaseClient,
@@ -45,7 +45,7 @@ export async function updateDealInline(
   patch: {
     title?: string;
     value?: number;
-    expected_close_date?: string | null;
+    scheduled_at?: string | null;
   },
 ): Promise<MoveDealStageResult> {
   const { error } = await db.from("deals").update(patch).eq("id", dealId);

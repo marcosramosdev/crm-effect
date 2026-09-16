@@ -57,6 +57,9 @@ export interface Account {
   name: string;
   /** auth.users.id of the immutable owner. */
   owner_user_id: string;
+  /** IANA timezone scheduled appointment times are read against.
+   *  NOT NULL DEFAULT 'America/Sao_Paulo' (migration 044). */
+  timezone: string;
   created_at: string;
   updated_at: string;
 }
@@ -336,7 +339,7 @@ export interface PipelineStage {
   created_at: string;
 }
 
-export type DealStatus = "open" | "won" | "lost";
+export type DealStatus = "open" | "qualified" | "lost";
 
 /** Type of a deal custom field definition (migration 042). */
 export type DealFieldType = "text" | "number" | "date" | "select" | "checkbox";
@@ -424,9 +427,13 @@ export interface Deal {
    * longer writes it.
    */
   notes?: string;
-  /** `YYYY-MM-DD`; nullable in the DB and cleared to `null` by the
-   *  board card's inline close-date edit. */
-  expected_close_date?: string | null;
+  /** UTC ISO instant the lead is booked for; nullable in the DB and
+   *  cleared to `null` by the board card's inline scheduling edit.
+   *  Read/written against the account's timezone (migration 044). */
+  scheduled_at?: string | null;
+  /** When the lead confirmed the booking (migration 044). Column
+   *  only — no UI in this change reads or writes it. */
+  appointment_confirmed_at?: string | null;
   status?: DealStatus;
   /** Win likelihood 0–100 (migration 042). Undefined = not estimated, distinct from 0. */
   probability?: number | null;

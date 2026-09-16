@@ -67,27 +67,29 @@ describe("moveDealStage", () => {
 });
 
 describe("updateDealInline", () => {
-  it("writes the close-date patch and reports ok", async () => {
+  it("writes the scheduled-time patch and reports ok", async () => {
     const { db, from, update, eq } = fakeDb(null);
 
     const result = await updateDealInline(db, "deal-1", {
-      expected_close_date: "2026-09-01",
+      scheduled_at: "2026-09-01T14:00:00.000Z",
     });
 
     expect(from).toHaveBeenCalledWith("deals");
-    expect(update).toHaveBeenCalledWith({ expected_close_date: "2026-09-01" });
+    expect(update).toHaveBeenCalledWith({
+      scheduled_at: "2026-09-01T14:00:00.000Z",
+    });
     expect(eq).toHaveBeenCalledWith("id", "deal-1");
     expect(result).toEqual({ ok: true });
   });
 
-  it("writes null to clear the close date", async () => {
+  it("writes null to clear the scheduled time", async () => {
     const { db, update } = fakeDb(null);
 
     const result = await updateDealInline(db, "deal-1", {
-      expected_close_date: null,
+      scheduled_at: null,
     });
 
-    expect(update).toHaveBeenCalledWith({ expected_close_date: null });
+    expect(update).toHaveBeenCalledWith({ scheduled_at: null });
     expect(result).toEqual({ ok: true });
   });
 });

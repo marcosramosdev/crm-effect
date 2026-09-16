@@ -345,7 +345,7 @@ export default function PipelinesPage() {
       patch: {
         title?: string;
         value?: number;
-        expected_close_date?: string | null;
+        scheduled_at?: string | null;
       },
     ): Promise<boolean> => {
       const before = deals.find((d) => d.id === dealId);

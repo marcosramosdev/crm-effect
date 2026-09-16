@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { setDealArchived } from "@/lib/inbox/deals";
 import { useAuth } from "@/hooks/use-auth";
+import { fromZonedInputValue, toZonedInputValue } from "@/lib/time/account-tz";
 import { useCan } from "@/hooks/use-can";
 import {
   parseDealFieldValue,
@@ -76,7 +77,7 @@ export function DealForm({
 }: DealFormProps) {
   const t = useTranslations("Pipelines.form");
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, timeZone } = useAuth();
   const canEdit = useCan("send-messages");
 
   const [title, setTitle] = useState("");
@@ -88,7 +89,7 @@ export function DealForm({
   const [pipelineId, setPipelineId] = useState(pipelineIdProp);
   const [stageId, setStageId] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [expectedCloseDate, setExpectedCloseDate] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
 
   // New built-in attributes (migration 042). All optional; "" / unset
   // must stay distinct from 0 / 'low' / ''.
@@ -139,7 +140,9 @@ export function DealForm({
       setStageId(deal.stage_id);
       setStageOptions(deal.pipeline_id === pipelineIdProp ? stages : []);
       setAssignedTo(deal.assigned_to ?? "");
-      setExpectedCloseDate(deal.expected_close_date ?? "");
+      setScheduledAt(
+        deal.scheduled_at ? toZonedInputValue(deal.scheduled_at, timeZone) : "",
+      );
       setPriority(deal.priority ?? "");
       setSource(deal.source ?? "");
       setDescription(deal.description ?? "");
@@ -153,7 +156,7 @@ export function DealForm({
       setStageOptions(stages);
       setStageId(defaultStageId || stages[0]?.id || "");
       setAssignedTo("");
-      setExpectedCloseDate("");
+      setScheduledAt("");
       setPriority("");
       setSource("");
       setDescription("");
@@ -161,7 +164,15 @@ export function DealForm({
       setFieldValues({});
       setNotes([]);
     }
-  }, [open, deal, defaultStageId, stages, defaultCurrency, pipelineIdProp]);
+  }, [
+    open,
+    deal,
+    defaultStageId,
+    stages,
+    defaultCurrency,
+    pipelineIdProp,
+    timeZone,
+  ]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load supporting data once the sheet is open
@@ -333,6 +344,14 @@ export function DealForm({
       return;
     }
 
+    // A `datetime-local` input's value is either "" or a complete
+    // "YYYY-MM-DDTHH:mm" — this guards a date with no time slipping
+    // through some other way (spec: "A date without a time is rejected").
+    if (scheduledAt && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(scheduledAt)) {
+      toast.error(t("toastScheduleIncomplete"));
+      return;
+    }
+
     // Validate every custom field before any write — a single bad value
     // fails the whole save (spec: "Partial save failure is surfaced").
     const resolved = resolveCustomValues();
@@ -351,7 +370,9 @@ export function DealForm({
       pipeline_id: pipelineId,
       stage_id: stageId,
       assigned_to: assignedTo || null,
-      expected_close_date: expectedCloseDate || null,
+      scheduled_at: scheduledAt
+        ? fromZonedInputValue(scheduledAt, timeZone)
+        : null,
       priority: priority || null,
       source: source || null,
       description: description.trim() || null,
@@ -439,7 +460,7 @@ export function DealForm({
     }
     setConfirmLost(false);
     toast.success(
-      status === "won"
+      status === "qualified"
         ? t("toastMarkedWon")
         : status === "lost"
           ? t("toastMarkedLost")
@@ -667,13 +688,13 @@ export function DealForm({
 
               <div className="grid gap-2">
                 <Label className="text-muted-foreground">
-                  {t("expectedCloseDate")}
+                  {t("scheduledAt")}
                 </Label>
                 <Input
-                  type="date"
-                  value={expectedCloseDate}
+                  type="datetime-local"
+                  value={scheduledAt}
                   disabled={disabled}
-                  onChange={(e) => setExpectedCloseDate(e.target.value)}
+                  onChange={(e) => setScheduledAt(e.target.value)}
                   className="border-border bg-muted text-foreground"
                 />
               </div>
@@ -778,13 +799,15 @@ export function DealForm({
                     <div className="flex gap-2">
                       <Button
                         type="button"
-                        onClick={() => handleStatusChange("won")}
+                        onClick={() => handleStatusChange("qualified")}
                         disabled={
-                          disabled || !!statusAction || deal.status === "won"
+                          disabled ||
+                          !!statusAction ||
+                          deal.status === "qualified"
                         }
                         className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 disabled:opacity-50"
                       >
-                        {statusAction === "won" ? (
+                        {statusAction === "qualified" ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <>

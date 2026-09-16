@@ -28,13 +28,13 @@ interface PipelineBoardProps {
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
-  /** Persist an inline title / value / close-date edit from a board card. */
+  /** Persist an inline title / value / schedule edit from a board card. */
   onInlineSaveDeal?: (
     dealId: string,
     patch: {
       title?: string;
       value?: number;
-      expected_close_date?: string | null;
+      scheduled_at?: string | null;
     },
   ) => Promise<boolean>;
   /** Archive (true) or unarchive (false) a deal — optimistic + revert
@@ -230,7 +230,7 @@ function StageColumn({
     patch: {
       title?: string;
       value?: number;
-      expected_close_date?: string | null;
+      scheduled_at?: string | null;
     },
   ) => Promise<boolean>;
   onArchiveDeal?: (dealId: string, archived: boolean) => void;
@@ -323,7 +323,7 @@ function DraggableDealCard({
     patch: {
       title?: string;
       value?: number;
-      expected_close_date?: string | null;
+      scheduled_at?: string | null;
     },
   ) => Promise<boolean>;
   onArchiveDeal?: (dealId: string, archived: boolean) => void;
