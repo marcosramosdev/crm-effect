@@ -20,6 +20,7 @@ import { runAutomationsForTrigger } from "@/lib/automations/engine";
 import { dispatchInboundToFlows } from "@/lib/flows/engine";
 import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
+import { routeFollowupButtonReply } from "@/lib/followups/webhook-routing";
 
 /**
  * UAZAPI webhook callback — see design.md D3 and the whatsapp-connection
@@ -663,6 +664,21 @@ async function processMessage(msg: UazapiMessage, config: ConfigRow) {
   );
   if (convError) {
     console.error("[webhook] error updating conversation:", convError);
+  }
+
+  // Follow-up button routing (design.md D9) — placed right after the
+  // idempotent insert + this RPC so a gateway redelivery never reaches
+  // it, and run alongside (never instead of) flow/automation dispatch
+  // below: it does not set flowConsumed. Best-effort — a bookkeeping
+  // failure here must never cost the account this inbound message.
+  try {
+    await routeFollowupButtonReply(supabaseAdmin(), {
+      accountId: config.account_id,
+      conversationId: conversation.id,
+      interactiveReplyId,
+    });
+  } catch (err) {
+    console.error("[webhook] follow-up routing failed:", err);
   }
 
   await reopenClosedConversation(supabaseAdmin(), conversation);

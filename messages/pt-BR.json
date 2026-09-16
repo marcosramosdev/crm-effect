@@ -248,7 +248,26 @@
     "emptyDesc": "Você verá um alerta aqui quando alguém te atribuir uma conversa.",
     "unreadAria": "Não lida",
     "toastMarkReadFailed": "Falha ao marcar notificação como lida",
-    "toastMarkAllFailed": "Falha ao marcar tudo como lido"
+    "toastMarkAllFailed": "Falha ao marcar tudo como lido",
+    "followups": {
+      "title": "Aprovação pendente",
+      "empty": "Nenhum lembrete aguardando aprovação.",
+      "unknownLead": "Lead sem nome",
+      "alreadyConfirmed": "Lead já confirmou",
+      "lastTick": "Última preparação {time}",
+      "lastTickNever": "Preparação ainda não rodou",
+      "approve": "Aprovar",
+      "retry": "Tentar novamente",
+      "edit": "Editar",
+      "reject": "Rejeitar",
+      "sendEdited": "Enviar editado",
+      "cancelEdit": "Cancelar",
+      "alreadyDecided": "Este lembrete já foi decidido por outra pessoa.",
+      "actionFailed": "Falha ao processar a ação",
+      "toast_approve": "Lembrete enviado",
+      "toast_reject": "Lembrete rejeitado",
+      "toast_edit_and_send": "Lembrete editado e enviado"
+    }
   },
   "Dashboard": {
     "page": {
@@ -452,7 +471,26 @@
       "addToPipelineError": "Não foi possível adicionar o contato a um funil.",
       "noPipelines": "Nenhum funil ainda. Crie um em Funis primeiro.",
       "pipeline": "Funil",
-      "openDealDetails": "Abrir detalhes do negócio"
+      "openDealDetails": "Abrir detalhes do negócio",
+      "aiFollowup": "Acompanhamento com IA"
+    },
+    "aiFollowup": {
+      "title": "Acompanhamento com IA",
+      "description": "Gera um rascunho a partir do histórico da conversa, no estilo de comunicação da conta. Nada é enviado até você revisar e clicar em Enviar.",
+      "styleLabel": "Estilo de comunicação",
+      "styleDefault": "Padrão da conta",
+      "style_friendly": "Amigável",
+      "style_direct": "Direto",
+      "style_consultative": "Consultivo",
+      "style_slot_reminder": "Lembrete de horário",
+      "draftLabel": "Rascunho",
+      "regenerate": "Gerar novamente",
+      "send": "Enviar",
+      "noHistory": "Não há histórico de conversa suficiente para gerar um rascunho.",
+      "notConfigured": "A IA ainda não está configurada — ative em Configurações → Assistente de IA.",
+      "draftFailed": "Não foi possível gerar o rascunho.",
+      "sendFailed": "Falha ao enviar a mensagem.",
+      "sent": "Mensagem enviada"
     },
     "stagePicker": {
       "changeStage": "Mudar etapa — atualmente {stage}",
@@ -717,7 +755,21 @@
       "toastFailedCreatePipeline": "Falha ao criar funil",
       "toastPipelineCreated": "Funil criado",
       "toastNotLinkedToAccount": "Seu perfil não está vinculado a uma conta.",
-      "toastFailedSaveDeal": "Falha ao salvar o negócio"
+      "toastFailedSaveDeal": "Falha ao salvar o negócio",
+      "boardTab": "Funil",
+      "reactivationTab": "Reativação"
+    },
+    "reactivation": {
+      "daysLabel": "Dias sem contato",
+      "stageLabel": "Etapa",
+      "anyStage": "Qualquer etapa",
+      "appointmentLabel": "Agendamento",
+      "appointmentAny": "Qualquer",
+      "appointmentHas": "Com agendamento futuro",
+      "appointmentNone": "Sem agendamento futuro",
+      "count": "{count, plural, one {1 lead} other {{count} leads}}",
+      "empty": "Nenhum lead inativo encontrado com esses filtros.",
+      "daysAgo": "{count, plural, one {há 1 dia} other {há {count} dias}}"
     },
     "board": {
       "dropDealHere": "Solte um negócio aqui",
@@ -1786,7 +1838,29 @@
       "save": "Salvar",
       "saving": "Salvando...",
       "saveFailed": "Falha ao salvar a moeda padrão",
-      "saveSuccess": "Moeda padrão atualizada"
+      "saveSuccess": "Moeda padrão atualizada",
+      "followupTitle": "Lembretes de acompanhamento",
+      "followupDescription": "Quando os lembretes de agendamento são preparados, o texto usado e quando um lead vira \"inativo\". Nada é enviado automaticamente — um agente sempre aprova antes do envio.",
+      "followupOffsetsLabel": "Antecedência dos lembretes",
+      "followupOffsetsHint": "Até 3 lembretes, cada um preparado com essa antecedência antes do horário agendado. Zero lembretes desativa a preparação de lembretes para esta conta.",
+      "followupOffsetsEmpty": "Nenhum lembrete configurado — a preparação de lembretes está desativada.",
+      "followupOffsetsUnit": "minutos antes",
+      "followupOffsetDays": "= {count, plural, one {1 dia} other {{count} dias}}",
+      "followupOffsetHours": "= {count, plural, one {1 hora} other {{count} horas}}",
+      "followupOffsetRawMinutes": "= {count} min",
+      "followupAddOffset": "Adicionar lembrete",
+      "followupRemoveOffset": "Remover este lembrete",
+      "followupTemplateLabel": "Modelo do lembrete",
+      "followupTemplateHint": "Marcadores permitidos: {placeholders}.",
+      "followupMedicoHint": "{medico} lê o campo personalizado do negócio chamado \"medico\" (crie-o em Campos e tags se ainda não existir); fica em branco quando o negócio não tiver esse campo preenchido.",
+      "followupStaleDaysLabel": "Dias sem contato até considerar o lead inativo",
+      "followupSaveFailed": "Falha ao salvar a configuração de lembretes",
+      "followupSaveSuccess": "Configuração de lembretes atualizada",
+      "followupErrorTooManyOffsets": "No máximo 3 lembretes são permitidos.",
+      "followupErrorNonPositiveOffset": "Cada lembrete precisa de um número de minutos maior que zero.",
+      "followupErrorDuplicateOffset": "Os lembretes não podem ter a mesma antecedência duas vezes.",
+      "followupErrorNonPositiveThreshold": "O limite de dias sem contato precisa ser maior que zero.",
+      "followupErrorUnknownPlaceholder": "Marcador desconhecido: {token}"
     },
     "aiConfig": {
       "title": "Configuração do agente",

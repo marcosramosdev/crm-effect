@@ -9,17 +9,26 @@ import { loadAiConfig } from "@/lib/ai/config";
 import { buildConversationContext } from "@/lib/ai/context";
 import { retrieveKnowledge } from "@/lib/ai/knowledge";
 import { generateReply } from "@/lib/ai/generate";
-import { buildSystemPrompt } from "@/lib/ai/defaults";
+import { buildSystemPrompt, FOLLOWUP_STYLE_CLAUSES } from "@/lib/ai/defaults";
 import { latestUserMessage } from "@/lib/ai/query";
 import { logAiUsage } from "@/lib/ai/usage";
 import { supabaseAdmin } from "@/lib/ai/admin-client";
 import { AiError } from "@/lib/ai/types";
+import type { FollowupStyle } from "@/lib/ai/types";
 
 /**
  * POST /api/ai/draft  (agent+)
  *
- * Body: { conversation_id }
- * Returns: { draft } — a suggested reply for the agent to edit + send.
+ * Body: `{ conversation_id, mode?: "draft" | "followup", style? }`.
+ * Returns: { draft } — a suggested reply/follow-up for the agent to
+ * edit + send.
+ *
+ * `mode: "followup"` is design.md D11 — the account's "AI follow-up"
+ * action on a quiet lead reuses this same route (context building,
+ * knowledge retrieval, the CFM guardrails, usage logging, both rate
+ * limits) rather than a second `/api/followups/draft`. `style` is an
+ * optional one-off override — it reaches this single generation call
+ * only and is never written back to `ai_configs.followup_style`.
  *
  * Uses the account's configured provider/key (BYO). Read-only: it never
  * sends or stores anything, just hands text back to the composer.
@@ -47,6 +56,19 @@ export async function POST(request: Request) {
         { error: "conversation_id is required" },
         { status: 400 },
       );
+    }
+
+    const mode = body && typeof body.mode === "string" ? body.mode : "draft";
+    if (mode !== "draft" && mode !== "followup") {
+      return NextResponse.json(
+        { error: 'mode must be "draft" or "followup"' },
+        { status: 400 },
+      );
+    }
+    const styleOverride =
+      body && typeof body.style === "string" ? body.style : undefined;
+    if (styleOverride && !(styleOverride in FOLLOWUP_STYLE_CLAUSES)) {
+      return NextResponse.json({ error: "Unknown style" }, { status: 400 });
     }
 
     // RLS scopes the SSR client to the caller's account, so a missing
@@ -91,14 +113,16 @@ export async function POST(request: Request) {
 
     const messages = await buildConversationContext(supabase, conversationId);
     // Nothing to draft from — a brand-new thread with no customer text
-    // would otherwise produce a nonsensical reply-to-nothing.
+    // would otherwise produce a nonsensical reply-to-nothing, and the
+    // followup spec requires this explicitly: "a draft cannot be
+    // produced rather than be given invented content."
     if (messages.length === 0) {
       return NextResponse.json(
         {
           error: "No messages to draft from yet.",
           code: "no_messages",
         },
-        { status: 400 },
+        { status: 422 },
       );
     }
 
@@ -113,8 +137,8 @@ export async function POST(request: Request) {
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
-      mode: "draft",
-      style: config.followupStyle,
+      mode,
+      style: (styleOverride as FollowupStyle | undefined) ?? config.followupStyle,
       knowledge,
     });
 

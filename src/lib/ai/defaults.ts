@@ -129,7 +129,7 @@ export const MEDICAL_ADVERTISING_CLAUSE =
  */
 export function buildSystemPrompt(args: {
   userPrompt: string | null;
-  mode: "draft" | "auto_reply";
+  mode: "draft" | "auto_reply" | "followup";
   style: FollowupStyle;
   /** Knowledge-base excerpts retrieved for the current question. */
   knowledge?: string[];
@@ -148,6 +148,14 @@ export function buildSystemPrompt(args: {
   if (mode === "auto_reply") {
     parts.push(
       `You are replying automatically with no human in the loop. If you cannot confidently and safely help — the customer explicitly asks for a human, is upset or complaining, or the request needs information you do not have — reply with exactly ${HANDOFF_SENTINEL} and nothing else. A human agent will then take over. Prefer handing off over guessing.`,
+    );
+  }
+
+  if (mode === "followup") {
+    parts.push(
+      "This lead has gone quiet — you are drafting a follow-up to reconnect, not a reply to their latest message. " +
+        "Reference what was previously discussed when useful, and invite them to continue rather than restating a sales pitch. " +
+        "Never invent a new offer, discount, or piece of information not already present in the conversation.",
     );
   }
 
