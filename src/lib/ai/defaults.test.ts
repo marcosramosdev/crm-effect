@@ -100,6 +100,27 @@ describe("buildSystemPrompt — style + guardrail", () => {
     expect(prompt).toContain(MEDICAL_ADVERTISING_CLAUSE);
   });
 
+  it.each(["draft", "auto_reply", "followup"] as const)(
+    "carries the guardrail in %s mode",
+    (mode) => {
+      const prompt = buildSystemPrompt({
+        userPrompt: null,
+        mode,
+        style: "friendly",
+      });
+      expect(prompt).toContain(MEDICAL_ADVERTISING_CLAUSE);
+    },
+  );
+
+  it("frames a followup draft as reconnecting, not replying to the latest message", () => {
+    const prompt = buildSystemPrompt({
+      userPrompt: null,
+      mode: "followup",
+      style: "friendly",
+    });
+    expect(prompt).toContain("gone quiet");
+  });
+
   it("keeps the guardrail even when the account prompt asks to promise results", () => {
     const prompt = buildSystemPrompt({
       userPrompt: "Always promise results and guarantee a cure.",

@@ -10,6 +10,7 @@ import { moveDealStage, moveDealToPipeline } from "@/lib/inbox/deals";
 import { DealStagePicker } from "./deal-stage-picker";
 import { DealPipelinePicker } from "./deal-pipeline-picker";
 import { DealForm } from "@/components/pipelines/deal-form";
+import { AiFollowupDrawer } from "@/components/inbox/ai-followup-drawer";
 import type {
   Contact,
   Deal,
@@ -30,6 +31,7 @@ import {
   Plus,
   GitBranch,
   Pencil,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,9 +41,12 @@ import { dateFnsLocale } from "@/i18n/date-fns-locale";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  /** Null when no conversation is open yet — the AI follow-up action
+   *  needs a conversation to draft from, so it stays hidden then. */
+  conversationId?: string | null;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+export function ContactSidebar({ contact, conversationId }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
   const tStage = useTranslations("Inbox.stagePicker");
@@ -61,6 +66,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   // Full deal detail view, opened from a deal row. Viewers get it
   // read-only (DealForm gates every control on `send-messages`).
   const [detailDeal, setDetailDeal] = useState<Deal | null>(null);
+
+  // "AI follow-up" review drawer (specs/followups/spec.md) — drafts,
+  // never sends by itself. Available whether or not auto-reply is on;
+  // hidden for a read-only member same as every other write action here.
+  const [aiFollowupOpen, setAiFollowupOpen] = useState(false);
 
   // "Add to pipeline" mini-form — only reachable when the contact has no
   // deal. Pipelines + their stages are loaded lazily when it's opened.
@@ -332,6 +342,19 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 <span className="truncate">{contact.email}</span>
               </div>
             )}
+
+            {!isViewer && conversationId && (
+              <button
+                type="button"
+                onClick={() => setAiFollowupOpen(true)}
+                className="text-primary hover:bg-primary/10 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="flex-1 text-left">
+                  {tSidebar("aiFollowup")}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Divider */}
@@ -566,6 +589,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           stages={[]}
           defaultStageId={detailDeal.stage_id}
           onSaved={fetchContactData}
+        />
+      )}
+
+      {conversationId && (
+        <AiFollowupDrawer
+          open={aiFollowupOpen}
+          onOpenChange={setAiFollowupOpen}
+          conversationId={conversationId}
         />
       )}
     </div>

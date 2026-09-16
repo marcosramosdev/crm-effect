@@ -20,6 +20,7 @@ const h = vi.hoisted(() => {
   return {
     BASE_CONFIG,
     runAutomationsForTrigger: vi.fn(),
+    routeFollowupButtonReply: vi.fn(),
     dispatchInboundToFlows: vi.fn(),
     dispatchInboundToAiReply: vi.fn(),
     dispatchWebhookEvent: vi.fn(),
@@ -310,6 +311,9 @@ vi.mock("@/lib/whatsapp/inbound-media", async (importOriginal) => {
 vi.mock("@/lib/automations/engine", () => ({
   runAutomationsForTrigger: h.runAutomationsForTrigger,
 }));
+vi.mock("@/lib/followups/webhook-routing", () => ({
+  routeFollowupButtonReply: h.routeFollowupButtonReply,
+}));
 vi.mock("@/lib/flows/engine", () => ({
   dispatchInboundToFlows: h.dispatchInboundToFlows,
 }));
@@ -442,6 +446,7 @@ beforeEach(() => {
   h.dispatchInboundToAiReply.mockResolvedValue(undefined);
   h.dispatchWebhookEvent.mockResolvedValue(undefined);
   h.runAutomationsForTrigger.mockResolvedValue(undefined);
+  h.routeFollowupButtonReply.mockResolvedValue(undefined);
 });
 
 // ============================================================
@@ -790,6 +795,101 @@ describe("interactive replies", () => {
         },
       }),
     );
+  });
+});
+
+// ============================================================
+// Follow-up reminder button routing — design.md D9. The routing
+// logic itself (confirm/reschedule branches, cross-account ignore) is
+// unit-tested in src/lib/followups/webhook-routing.test.ts; these
+// tests cover the webhook's OWN responsibilities: calling it with the
+// right args, never letting it swallow the message or block other
+// dispatch, and never letting a routing failure escape.
+// ============================================================
+describe("follow-up button routing (design.md D9)", () => {
+  it("still fires interactive_reply automations for a reminder reply", async () => {
+    await runWebhook(
+      envelope("message", {
+        ...TEXT_MESSAGE,
+        messageid: "uaz-fu-1",
+        buttonOrListid: "fu:fu-1:confirm",
+        text: "Confirmar",
+      }),
+    );
+
+    expect(h.routeFollowupButtonReply).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        accountId: "acc-1",
+        conversationId: "conv-1",
+        interactiveReplyId: "fu:fu-1:confirm",
+      },
+    );
+    expect(h.runAutomationsForTrigger).toHaveBeenCalledWith(
+      expect.objectContaining({ triggerType: "interactive_reply" }),
+    );
+  });
+
+  it("is called with a null interactiveReplyId for typed text (no buttonOrListid) — not treated as a button press", async () => {
+    await runWebhook(
+      envelope("message", {
+        ...TEXT_MESSAGE,
+        messageid: "uaz-typed",
+        buttonOrListid: undefined,
+        text: "Confirmar",
+      }),
+    );
+
+    expect(h.state.upsertCalls[0].row).toMatchObject({
+      content_type: "text",
+      interactive_reply_id: null,
+    });
+    expect(h.routeFollowupButtonReply).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ interactiveReplyId: null }),
+    );
+  });
+
+  it("a routing failure is logged and never propagates — the inbound message stays intact", async () => {
+    h.routeFollowupButtonReply.mockRejectedValueOnce(new Error("boom"));
+    const res = await runWebhook(
+      envelope("message", {
+        ...TEXT_MESSAGE,
+        messageid: "uaz-fu-2",
+        buttonOrListid: "fu:fu-2:confirm",
+      }),
+    );
+    expect(res.init?.status ?? 200).toBe(200);
+    expect(h.state.upsertCalls).toHaveLength(1);
+    expect(h.dispatchInboundToFlows).toHaveBeenCalled();
+    expect(h.runAutomationsForTrigger).toHaveBeenCalled();
+  });
+
+  it("redelivery is exactly-once: routing runs only on the genuine first delivery", async () => {
+    await runWebhook(
+      envelope("message", {
+        ...TEXT_MESSAGE,
+        messageid: "uaz-fu-3",
+        buttonOrListid: "fu:fu-3:confirm",
+      }),
+    );
+    expect(h.routeFollowupButtonReply).toHaveBeenCalledTimes(1);
+
+    // Replay: the (conversation_id, message_id) unique index turns this
+    // into ON CONFLICT DO NOTHING, so the handler never reaches the
+    // routing call again.
+    h.state.afterCallbacks = [];
+    h.state.messageUpsertResult = [];
+    h.routeFollowupButtonReply.mockClear();
+
+    await runWebhook(
+      envelope("message", {
+        ...TEXT_MESSAGE,
+        messageid: "uaz-fu-3",
+        buttonOrListid: "fu:fu-3:confirm",
+      }),
+    );
+    expect(h.routeFollowupButtonReply).not.toHaveBeenCalled();
   });
 });
 

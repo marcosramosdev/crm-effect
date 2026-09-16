@@ -12,6 +12,7 @@ import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
 import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
+import { ReactivationList } from "@/components/pipelines/reactivation-list";
 import {
   DealBoardFilter,
   type BoardFilter,
@@ -71,6 +72,11 @@ export default function PipelinesPage() {
   // deals (into their real stage columns) and each card offers just an
   // Unarchive action; the custom-field filter bar and analytics hide.
   const [showArchived, setShowArchived] = useState(false);
+
+  // "Board" vs "Reactivation" (specs/followups/spec.md — leads that
+  // went quiet, read-only, no bulk actions). A tab, not a route: it
+  // shares the pipeline selector above.
+  const [view, setView] = useState<"board" | "reactivation">("board");
 
   // Deal custom fields (migration 042) — account-wide, for the board
   // filter. Fetched once; RLS scopes it to the account.
@@ -567,6 +573,34 @@ export default function PipelinesPage() {
         </div>
       </div>
 
+      {/* Board / Reactivation tabs */}
+      {pipelines.length > 0 && (
+        <div className="border-border flex gap-1 border-b">
+          <button
+            type="button"
+            onClick={() => setView("board")}
+            className={
+              view === "board"
+                ? "text-primary border-primary -mb-px border-b-2 px-3 py-2 text-sm font-medium"
+                : "text-muted-foreground hover:text-foreground -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium"
+            }
+          >
+            {t("boardTab")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("reactivation")}
+            className={
+              view === "reactivation"
+                ? "text-primary border-primary -mb-px border-b-2 px-3 py-2 text-sm font-medium"
+                : "text-muted-foreground hover:text-foreground -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium"
+            }
+          >
+            {t("reactivationTab")}
+          </button>
+        </div>
+      )}
+
       {/* Board */}
       {pipelines.length === 0 ? (
         <div className="border-border flex flex-col items-center justify-center rounded-xl border border-dashed py-20">
@@ -587,6 +621,8 @@ export default function PipelinesPage() {
             {t("createPipeline")}
           </GatedButton>
         </div>
+      ) : view === "reactivation" ? (
+        <ReactivationList pipelineId={selectedPipelineId} stages={stages} />
       ) : (
         <>
           {!showArchived && dealFields.length > 0 && (

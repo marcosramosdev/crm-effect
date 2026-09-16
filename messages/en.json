@@ -248,7 +248,26 @@
     "emptyDesc": "You'll see an alert here when someone assigns you a conversation.",
     "unreadAria": "Unread",
     "toastMarkReadFailed": "Failed to mark notification as read",
-    "toastMarkAllFailed": "Failed to mark all as read"
+    "toastMarkAllFailed": "Failed to mark all as read",
+    "followups": {
+      "title": "Pending approval",
+      "empty": "No reminders waiting on approval.",
+      "unknownLead": "Unnamed lead",
+      "alreadyConfirmed": "Lead already confirmed",
+      "lastTick": "Last prepared {time}",
+      "lastTickNever": "Preparation hasn't run yet",
+      "approve": "Approve",
+      "retry": "Retry",
+      "edit": "Edit",
+      "reject": "Reject",
+      "sendEdited": "Send edited",
+      "cancelEdit": "Cancel",
+      "alreadyDecided": "This follow-up was already decided by someone else.",
+      "actionFailed": "Failed to process the action",
+      "toast_approve": "Reminder sent",
+      "toast_reject": "Reminder rejected",
+      "toast_edit_and_send": "Reminder edited and sent"
+    }
   },
   "Dashboard": {
     "page": {
@@ -452,7 +471,26 @@
       "addToPipelineError": "Couldn’t add the contact to a pipeline.",
       "noPipelines": "No pipelines yet. Create one in Pipelines first.",
       "pipeline": "Pipeline",
-      "openDealDetails": "Open deal details"
+      "openDealDetails": "Open deal details",
+      "aiFollowup": "AI follow-up"
+    },
+    "aiFollowup": {
+      "title": "AI follow-up",
+      "description": "Drafts a follow-up from the conversation's history, in the account's communication style. Nothing sends until you review it and press Send.",
+      "styleLabel": "Communication style",
+      "styleDefault": "Account default",
+      "style_friendly": "Friendly",
+      "style_direct": "Direct",
+      "style_consultative": "Consultative",
+      "style_slot_reminder": "Slot reminder",
+      "draftLabel": "Draft",
+      "regenerate": "Regenerate",
+      "send": "Send",
+      "noHistory": "There isn't enough conversation history to draft a follow-up.",
+      "notConfigured": "AI isn't set up yet — enable it in Settings → AI Assistant.",
+      "draftFailed": "Couldn't generate a draft.",
+      "sendFailed": "Failed to send the message.",
+      "sent": "Message sent"
     },
     "stagePicker": {
       "changeStage": "Change stage — currently {stage}",
@@ -717,7 +755,21 @@
       "toastFailedCreatePipeline": "Failed to create pipeline",
       "toastPipelineCreated": "Pipeline created",
       "toastNotLinkedToAccount": "Your profile is not linked to an account.",
-      "toastFailedSaveDeal": "Failed to save the deal"
+      "toastFailedSaveDeal": "Failed to save the deal",
+      "boardTab": "Board",
+      "reactivationTab": "Reactivation"
+    },
+    "reactivation": {
+      "daysLabel": "Days without contact",
+      "stageLabel": "Stage",
+      "anyStage": "Any stage",
+      "appointmentLabel": "Appointment",
+      "appointmentAny": "Any",
+      "appointmentHas": "Has a future appointment",
+      "appointmentNone": "No future appointment",
+      "count": "{count, plural, one {1 lead} other {{count} leads}}",
+      "empty": "No stale leads match these filters.",
+      "daysAgo": "{count, plural, one {1 day ago} other {{count} days ago}}"
     },
     "board": {
       "dropDealHere": "Drop a deal here",
@@ -1787,7 +1839,29 @@
       "save": "Save",
       "saving": "Saving...",
       "saveFailed": "Failed to save default currency",
-      "saveSuccess": "Default currency updated"
+      "saveSuccess": "Default currency updated",
+      "followupTitle": "Follow-up reminders",
+      "followupDescription": "When appointment reminders are prepared, the text they use, and when a lead counts as stale. Nothing sends automatically — an agent always approves before it goes out.",
+      "followupOffsetsLabel": "Reminder lead times",
+      "followupOffsetsHint": "Up to 3 reminders, each prepared this many minutes before the booked time. Zero reminders disables reminder preparation for this account.",
+      "followupOffsetsEmpty": "No reminders configured — reminder preparation is disabled.",
+      "followupOffsetsUnit": "minutes before",
+      "followupOffsetDays": "= {count, plural, one {1 day} other {{count} days}}",
+      "followupOffsetHours": "= {count, plural, one {1 hour} other {{count} hours}}",
+      "followupOffsetRawMinutes": "= {count} min",
+      "followupAddOffset": "Add reminder",
+      "followupRemoveOffset": "Remove this reminder",
+      "followupTemplateLabel": "Reminder template",
+      "followupTemplateHint": "Allowed placeholders: {placeholders}.",
+      "followupMedicoHint": "{medico} reads the deal custom field named \"medico\" (create it under Fields & tags if it doesn't exist yet); it renders empty when the deal has no value for it.",
+      "followupStaleDaysLabel": "Days without contact before a lead counts as stale",
+      "followupSaveFailed": "Failed to save the follow-up configuration",
+      "followupSaveSuccess": "Follow-up configuration updated",
+      "followupErrorTooManyOffsets": "At most 3 reminders are allowed.",
+      "followupErrorNonPositiveOffset": "Every reminder needs a number of minutes greater than zero.",
+      "followupErrorDuplicateOffset": "Reminders can't share the same lead time twice.",
+      "followupErrorNonPositiveThreshold": "The days-without-contact threshold must be greater than zero.",
+      "followupErrorUnknownPlaceholder": "Unknown placeholder: {token}"
     },
     "aiConfig": {
       "title": "Agent setup",

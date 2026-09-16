@@ -12,6 +12,7 @@ import { dateFnsLocale } from "@/i18n/date-fns-locale";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PendingFollowupsSection } from "@/components/notifications/pending-followups-section";
 
 // Icon per notification type. Only one type exists today
 // (conversation_assigned) but this keeps future types a one-line add.
@@ -191,6 +192,8 @@ export default function NotificationsPage() {
           {t("markAllRead")}
         </Button>
       </div>
+
+      <PendingFollowupsSection />
 
       {notifications.length === 0 ? (
         <div className="border-border bg-muted/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed">
