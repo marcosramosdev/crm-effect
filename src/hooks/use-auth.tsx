@@ -36,6 +36,9 @@ interface Profile {
   beta_features: string[];
   account_id: string | null;
   account_role: AccountRole | null;
+  /** Null until the client dismisses the password banner or changes
+   *  their (operator-delivered) password. Migration 046. */
+  password_banner_dismissed_at: string | null;
 }
 
 interface AccountSummary {
@@ -161,6 +164,7 @@ interface ProfileRow {
   beta_features: string[] | null;
   account_id: string | null;
   account_role: string | null;
+  password_banner_dismissed_at: string | null;
 }
 
 /**
@@ -201,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await supabase
           .from("profiles")
           .select(
-            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, password_banner_dismissed_at",
           )
           .eq("user_id", userId)
           .maybeSingle();
@@ -291,6 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           beta_features: data.beta_features ?? [],
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          password_banner_dismissed_at: data.password_banner_dismissed_at,
         });
         setAccount(accountRow);
         if (!data.account_id || !accountRole) {

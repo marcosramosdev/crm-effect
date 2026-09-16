@@ -847,6 +847,8 @@
       "saveChanges": "Save Changes",
       "dragToReorder": "Drag to reorder",
       "changeColor": "Change color",
+      "systemStageExplanation": "This is the entry stage every new lead lands in — it can't be renamed, reordered, or deleted.",
+      "toastSystemStageProtected": "That's the system stage — it can't be renamed, reordered, or deleted.",
       "toastFailedSave": "Failed to save pipeline",
       "toastSaved": "Pipeline saved",
       "toastFailedAddStage": "Failed to add stage",
@@ -1887,5 +1889,39 @@
         "checkbox": "Checkbox"
       }
     }
+  },
+  "PasswordBanner": {
+    "title": "Change your password",
+    "desc": "An Effect operator set your initial password.",
+    "changePassword": "Change it now",
+    "dismiss": "Dismiss"
+  },
+  "AdminConsole": {
+    "title": "Provision a client account",
+    "desc": "One submission creates the sign-in, account, pipeline, WhatsApp instance, assistant, and ad credentials.",
+    "clinicName": "Clinic name",
+    "clientFullName": "Client full name",
+    "clientEmail": "Client e-mail",
+    "clientPassword": "Client password",
+    "specialty": "Specialty",
+    "specialties": {
+      "dentist": "Dentist",
+      "physician": "Physician",
+      "psychologist": "Psychologist"
+    },
+    "persona": "Assistant persona",
+    "metaDatasetId": "Meta dataset ID",
+    "metaAccessToken": "Meta access token",
+    "submit": "Provision account",
+    "submitting": "Provisioning...",
+    "successTitle": "Account provisioned",
+    "successDesc": "Deliver these to the client through your own channel — they will not be shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "clipboardBlocked": "Couldn't copy — copy it by hand",
+    "provisionAnother": "Provision another account",
+    "failedStep": "Failed at step: {step}",
+    "cleanupIncomplete": "Cleanup incomplete — remove by hand: auth user {authUserId}, account {accountId}",
+    "networkError": "Could not reach the server. Try again?"
   }
 }

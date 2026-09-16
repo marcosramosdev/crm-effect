@@ -32,6 +32,14 @@ import { Trash2, Plus, GripVertical, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
+// The pipeline_stages_protect_* triggers (migration 046) always raise
+// with "the system stage" in the message — matching on that substring
+// rather than the SQLSTATE keeps this resilient to future check
+// constraints on the same table while staying specific to this one.
+function isSystemStageError(message: string | undefined): boolean {
+  return Boolean(message?.includes("system stage"));
+}
+
 const STAGE_COLORS = [
   "#3b82f6",
   "#6366f1",
@@ -104,7 +112,12 @@ export function PipelineSettings({
 
     // One upsert for all stages — batches N stage writes into a single
     // round-trip. Previous implementation did N sequential UPDATEs which
-    // latency-scaled linearly with stage count.
+    // latency-scaled linearly with stage count. It also doubles as the
+    // system-stage guard: the system stage's row is included unchanged
+    // (its position stays 0 whenever it can't be dragged — see
+    // SortableStageRow), so a reorder that WOULD displace it trips the
+    // pipeline_stages_protect_update trigger and the whole upsert is
+    // rejected atomically — no other stage's position changes either.
     const stageRows = localStages.map((s, i) => ({
       id: s.id,
       pipeline_id: s.pipeline_id,
@@ -124,7 +137,11 @@ export function PipelineSettings({
     setSaving(false);
 
     if (renameRes.error || stagesRes.error) {
-      toast.error(t("toastFailedSave"));
+      toast.error(
+        isSystemStageError(stagesRes.error?.message)
+          ? t("toastSystemStageProtected")
+          : t("toastFailedSave"),
+      );
       return;
     }
 
@@ -173,7 +190,11 @@ export function PipelineSettings({
       .delete()
       .eq("id", stageId);
     if (error) {
-      toast.error(t("toastFailedDeleteStage"));
+      toast.error(
+        isSystemStageError(error.message)
+          ? t("toastSystemStageProtected")
+          : t("toastFailedDeleteStage"),
+      );
       return;
     }
     setLocalStages(localStages.filter((s) => s.id !== stageId));
@@ -388,7 +409,7 @@ function SortableStageRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: stage.id });
+  } = useSortable({ id: stage.id, disabled: stage.is_system });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -400,36 +421,50 @@ function SortableStageRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="border-border bg-muted flex items-center gap-2 rounded-lg border p-2"
+      className="border-border bg-muted flex flex-col gap-1 rounded-lg border p-2"
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="text-muted-foreground hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
-        aria-label={t("dragToReorder")}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <ColorSwatch
-        value={stage.color}
-        onChange={onColorChange}
-        colors={colors}
-        t={t}
-      />
-      <Input
-        value={stage.name}
-        onChange={(e) => onNameChange(e.target.value)}
-        className="text-foreground focus:border-border h-7 flex-1 border-transparent bg-transparent text-sm"
-      />
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        onClick={onRemove}
-        className="text-muted-foreground hover:text-red-400"
-      >
-        <Trash2 className="h-3 w-3" />
-      </Button>
+      <div className="flex items-center gap-2">
+        {stage.is_system ? (
+          <span className="w-4 shrink-0" aria-hidden />
+        ) : (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
+            aria-label={t("dragToReorder")}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        <ColorSwatch
+          value={stage.color}
+          onChange={onColorChange}
+          colors={colors}
+          t={t}
+        />
+        <Input
+          value={stage.name}
+          onChange={(e) => onNameChange(e.target.value)}
+          disabled={stage.is_system}
+          className="text-foreground focus:border-border h-7 flex-1 border-transparent bg-transparent text-sm disabled:opacity-100"
+        />
+        {!stage.is_system && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onRemove}
+            className="text-muted-foreground hover:text-red-400"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+      {stage.is_system && (
+        <p className="text-muted-foreground pl-6 text-xs">
+          {t("systemStageExplanation")}
+        </p>
+      )}
     </div>
   );
 }

@@ -336,6 +336,12 @@ export interface PipelineStage {
   name: string;
   position: number;
   color: string;
+  /**
+   * A system stage can't be renamed, deleted, or moved out of
+   * position 0 — enforced by DB triggers (migration 046), the UI only
+   * hides the controls. At most one per pipeline. Migration 046.
+   */
+  is_system: boolean;
   created_at: string;
 }
 

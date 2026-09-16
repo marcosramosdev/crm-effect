@@ -22,7 +22,7 @@ const MIN_PASSWORD = 8;
 
 export function PasswordForm() {
   const t = useTranslations("Settings.profile");
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const supabase = createClient();
 
   const [current, setCurrent] = useState("");
@@ -70,6 +70,16 @@ export function PasswordForm() {
           t("passwordUpdateFailed", { message: updateError.message }),
         );
         return;
+      }
+
+      // Retires the "change your delivered password" banner — the
+      // client just did, whether or not they'd dismissed it before.
+      if (profile?.id) {
+        await supabase
+          .from("profiles")
+          .update({ password_banner_dismissed_at: new Date().toISOString() })
+          .eq("id", profile.id);
+        await refreshProfile();
       }
 
       setCurrent("");
