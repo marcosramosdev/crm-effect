@@ -9,6 +9,7 @@ let pipelineInsertFails = false;
 let accountsDeleteFails = false;
 let gatewayFails = false;
 let lastWhatsappConfigUpdate: Record<string, unknown> | null = null;
+let lastAccountsUpdate: Record<string, unknown> | null = null;
 
 vi.mock("@/lib/whatsapp/encryption", () => ({
   encrypt: (v: string) => `enc:${v}`,
@@ -51,6 +52,7 @@ function makeDb() {
       builder.update = (vals: Record<string, unknown>) => {
         mode = "update";
         if (table === "whatsapp_config") lastWhatsappConfigUpdate = vals;
+        if (table === "accounts") lastAccountsUpdate = vals;
         return builder;
       };
       builder.delete = () => {
@@ -134,6 +136,7 @@ beforeEach(() => {
   accountsDeleteFails = false;
   gatewayFails = false;
   lastWhatsappConfigUpdate = null;
+  lastAccountsUpdate = null;
 });
 
 afterEach(() => {
@@ -211,6 +214,36 @@ describe("provision", () => {
     expect(lastWhatsappConfigUpdate).toEqual({
       inbound_default_pipeline_id: "pipe-1",
       inbound_default_stage_id: "stage-0",
+    });
+  });
+
+  // tasks.md 5.1 — metaDatasetId/metaAccessToken are optional at
+  // provisioning time; omitted fields must be left off the accounts
+  // update entirely, not written as empty strings.
+  describe("optional Meta advertising fields", () => {
+    it("provisions with both dataset id and access token", async () => {
+      const { provision } = await import("./provision");
+      await provision(INPUT);
+      expect(lastAccountsUpdate).toEqual({
+        name: INPUT.clinicName,
+        meta_dataset_id: "dataset-1",
+        meta_access_token: "enc:token-1",
+      });
+    });
+
+    it("provisions with only the dataset id", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaDatasetId: "dataset-1", metaAccessToken: undefined });
+      expect(lastAccountsUpdate).toEqual({
+        name: INPUT.clinicName,
+        meta_dataset_id: "dataset-1",
+      });
+    });
+
+    it("provisions with neither Meta field", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaDatasetId: undefined, metaAccessToken: undefined });
+      expect(lastAccountsUpdate).toEqual({ name: INPUT.clinicName });
     });
   });
 });

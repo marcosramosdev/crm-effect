@@ -87,6 +87,24 @@ describe("POST /api/admin/provision", () => {
     expect(mocks.provision).not.toHaveBeenCalled();
   });
 
+  it("provisions successfully when both Meta fields are omitted", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
+
+    const { metaDatasetId, metaAccessToken, ...withoutMeta } = VALID_BODY;
+    void metaDatasetId;
+    void metaAccessToken;
+    const response = await POST(request(withoutMeta));
+
+    expect(response.status).toBe(201);
+    expect(mocks.provision).toHaveBeenCalledWith(
+      expect.objectContaining({ metaDatasetId: undefined, metaAccessToken: undefined }),
+    );
+  });
+
   it("provisions and returns only the e-mail on success, never the password", async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },

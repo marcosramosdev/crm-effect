@@ -239,7 +239,6 @@ export function ProvisioningForm() {
             <Input
               value={form.metaDatasetId}
               onChange={(e) => set("metaDatasetId", e.target.value)}
-              required
             />
           </Field>
 
@@ -249,7 +248,6 @@ export function ProvisioningForm() {
               autoComplete="off"
               value={form.metaAccessToken}
               onChange={(e) => set("metaAccessToken", e.target.value)}
-              required
             />
           </Field>
 

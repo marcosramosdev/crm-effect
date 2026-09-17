@@ -52,9 +52,14 @@ export async function POST(request: Request) {
       typeof body?.clientPassword === "string" ? body.clientPassword : null;
     const specialty = requiredString(body?.specialty);
     const persona = typeof body?.persona === "string" ? body.persona.trim() : "";
-    const metaDatasetId = requiredString(body?.metaDatasetId);
+    // Optional at provisioning time (provisioning spec.md, "Provisioning
+    // without advertising configuration") — an operator fills these in
+    // later via /api/admin/accounts/[id]/meta.
+    const metaDatasetId = requiredString(body?.metaDatasetId) ?? undefined;
     const metaAccessToken =
-      typeof body?.metaAccessToken === "string" ? body.metaAccessToken.trim() : null;
+      typeof body?.metaAccessToken === "string" && body.metaAccessToken.trim()
+        ? body.metaAccessToken.trim()
+        : undefined;
 
     if (
       !clinicName ||
@@ -62,8 +67,6 @@ export async function POST(request: Request) {
       !clientEmail ||
       !clientPassword ||
       !specialty ||
-      !metaDatasetId ||
-      !metaAccessToken ||
       !SPECIALTY_KEYS.includes(specialty as SpecialtyKey)
     ) {
       return NextResponse.json(

@@ -163,6 +163,14 @@ interface UazapiMessage {
   reaction?: string;
   buttonOrListid?: string;
   error?: string;
+  /**
+   * Raw message content. UAZAPI's own schema types this `oneOf: [object,
+   * string]` — some deployments send the parsed object, others the same
+   * JSON serialized as a string (design.md D10, meta-capi-qualified-lead).
+   * Carries `contextInfo.externalAdReply` on the first message of an
+   * ad-started conversation — see `parseCtwa`.
+   */
+  content?: unknown;
 }
 
 interface ConfigRow {
@@ -550,6 +558,8 @@ async function processMessage(msg: UazapiMessage, config: ConfigRow) {
   );
   if (!contactOutcome) return;
   const contact = contactOutcome.contact;
+
+  await captureCtwaAttributionIfAny(contact, msg.content);
 
   // Opt-in: a contact this webhook just created is dropped into the
   // account's configured default pipeline as a fresh deal. Best-effort —
@@ -954,6 +964,87 @@ async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
     }
   } catch (err) {
     console.error("[webhook] flagBroadcastReplyIfAny failed:", err);
+  }
+}
+
+/** Attribution extracted from an inbound message's ad-referral block (design.md D10). */
+export interface CtwaAttribution {
+  ctwaClid: string;
+  sourceId: string | null;
+}
+
+/**
+ * Narrows `Message.content` down to the one field capture needs. UAZAPI
+ * types `content` `oneOf: [object, string]` in its own OpenAPI spec —
+ * "Conteúdo bruto da mensagem (JSON serializado ou texto)" — so the JSON
+ * string form is parsed before walking `contextInfo.externalAdReply`
+ * (meta-capi-qualified-lead design.md D10). Returns null for an organic
+ * message (no ad-referral block) and for a block with an empty click id;
+ * the caller cannot tell those two apart, and doesn't need to.
+ */
+export function parseCtwa(content: unknown): CtwaAttribution | null {
+  let parsed: unknown = content;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const contextInfo = (parsed as Record<string, unknown>).contextInfo;
+  if (!contextInfo || typeof contextInfo !== "object") return null;
+
+  const externalAdReply = (contextInfo as Record<string, unknown>)
+    .externalAdReply;
+  if (!externalAdReply || typeof externalAdReply !== "object") return null;
+
+  const ctwaClid = (externalAdReply as Record<string, unknown>).ctwaClid;
+  if (typeof ctwaClid !== "string" || !ctwaClid) return null;
+
+  const sourceID = (externalAdReply as Record<string, unknown>).sourceID;
+  return {
+    ctwaClid,
+    sourceId: typeof sourceID === "string" ? sourceID : null,
+  };
+}
+
+/**
+ * Best-effort CTWA attribution capture (whatsapp-messaging spec, "Inbound
+ * ad attribution is captured on the contact"). Modelled on
+ * `flagBroadcastReplyIfAny`: never throws past itself — a failure here
+ * must not cost the account this inbound message.
+ */
+async function captureCtwaAttributionIfAny(
+  contact: ContactRow,
+  content: unknown,
+): Promise<void> {
+  const attribution = parseCtwa(content);
+  if (!attribution) return;
+
+  // A redelivered first message carries the same click again — skip so
+  // ctwa_clid_at doesn't move and quietly extend the 7-day window past
+  // its real end (design.md D10).
+  if (contact.ctwa_clid === attribution.ctwaClid) return;
+
+  try {
+    const { error } = await supabaseAdmin()
+      .from("contacts")
+      .update({
+        ctwa_clid: attribution.ctwaClid,
+        ad_source_id: attribution.sourceId,
+        ctwa_clid_at: new Date().toISOString(),
+      })
+      .eq("id", contact.id);
+    if (error) {
+      console.error(
+        "[webhook] ctwa attribution capture failed:",
+        error.message,
+      );
+    }
+  } catch (err) {
+    console.error("[webhook] ctwa attribution capture failed:", err);
   }
 }
 

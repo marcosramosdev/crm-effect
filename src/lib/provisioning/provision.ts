@@ -36,8 +36,11 @@ export interface ProvisionInput {
   clientPassword: string;
   specialty: SpecialtyKey;
   persona: string;
-  metaDatasetId: string;
-  metaAccessToken: string;
+  /** Optional at provisioning time — an account with no dataset simply
+   *  doesn't report conversions until an operator fills it in later via
+   *  the /admin edit path (provisioning spec.md). */
+  metaDatasetId?: string;
+  metaAccessToken?: string;
 }
 
 export type ProvisionStep =
@@ -145,14 +148,12 @@ export async function provision(
     });
 
     await runStep("update_account", async () => {
-      const { error } = await db
-        .from("accounts")
-        .update({
-          name: input.clinicName,
-          meta_dataset_id: input.metaDatasetId,
-          meta_access_token: encrypt(input.metaAccessToken),
-        })
-        .eq("id", accountId);
+      const patch: Record<string, unknown> = { name: input.clinicName };
+      if (input.metaDatasetId) patch.meta_dataset_id = input.metaDatasetId;
+      if (input.metaAccessToken) {
+        patch.meta_access_token = encrypt(input.metaAccessToken);
+      }
+      const { error } = await db.from("accounts").update(patch).eq("id", accountId);
       if (error) throw new Error(error.message);
     });
 
