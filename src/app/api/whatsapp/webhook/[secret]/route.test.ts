@@ -51,6 +51,8 @@ const h = vi.hoisted(() => {
       conversationCreated: false,
       // contacts table
       contactInserts: [] as Record<string, unknown>[],
+      contactUpdates: [] as Record<string, unknown>[],
+      contactUpdateShouldError: false,
       // broadcast_recipients table
       recipient: null as { id: string; status: string } | null,
       recipientUpdates: [] as Record<string, unknown>[],
@@ -116,7 +118,17 @@ vi.mock("@supabase/supabase-js", () => ({
                 }),
               };
             },
-            update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+            update: (patch: Record<string, unknown>) => {
+              h.state.contactUpdates.push(patch);
+              return {
+                eq: () =>
+                  Promise.resolve({
+                    error: h.state.contactUpdateShouldError
+                      ? { message: "contact update boom" }
+                      : null,
+                  }),
+              };
+            },
           };
         case "conversations":
           return {
@@ -324,7 +336,7 @@ vi.mock("@/lib/webhooks/deliver", () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }));
 
-import { POST, normalizeWebhookEventType } from "./route";
+import { POST, normalizeWebhookEventType, parseCtwa } from "./route";
 
 // The real UAZAPI callback envelope (see route.ts `extractEnvelope` /
 // design.md D1): the event type is in `EventType`, and the payload sits
@@ -408,6 +420,53 @@ const REAL_INBOUND_MESSAGE = {
   wasSentByApi: false,
 };
 
+// Real captured `EventType: "messages"` payload from "Arthur Pena" —
+// message.content carrying contextInfo.externalAdReply (design.md D10).
+// Trimmed to the fields parseCtwa/processMessage read.
+const REAL_CTWA_CONTENT = {
+  title: "Dr Arthur Pena . Neurologista",
+  previewType: 0,
+  contextInfo: {
+    conversionSource: "FB_Ads",
+    conversionDelaySeconds: 3,
+    externalAdReply: {
+      title: "Dr Arthur Pena . Neurologista",
+      body: "",
+      mediaType: 2,
+      mediaURL:
+        "https://www.facebook.com/61587334015088/videos/1332056855401835/",
+      sourceType: "ad",
+      sourceID: "120250103171390297",
+      sourceURL: "https://www.instagram.com/p/DcRR3t3Aivx/",
+      containsAutoReply: false,
+      ctwaClid:
+        "AfgDVt9Jf9YD66CwnEiMzSPpO7CiJxc_jTPUy-G-CUSW5ftnlLagcyNQC9FI7UNCEoDEa5Wsf9ppFX_G0x6lN_Y6UiZavK_lccaI0BJZCbeTUczyR2utDicx1d58QKEyHeS0KgKYOw",
+      clickToWhatsappCall: true,
+      sourceApp: "instagram",
+    },
+    entryPointConversionSource: "ctwa_ad",
+    entryPointConversionApp: "instagram",
+  },
+};
+const REAL_CTWA_CTWA_CLID = REAL_CTWA_CONTENT.contextInfo.externalAdReply.ctwaClid;
+const REAL_CTWA_SOURCE_ID = REAL_CTWA_CONTENT.contextInfo.externalAdReply.sourceID;
+
+const CTWA_MESSAGE = {
+  buttonOrListid: "",
+  chatid: "553193611736@s.whatsapp.net",
+  fromMe: false,
+  isGroup: false,
+  messageType: "ExtendedTextMessage",
+  messageTimestamp: 1789529644000,
+  messageid: "ACB3CC7379C7F556C2BE0B3CA91C28BA",
+  quoted: "",
+  reaction: "",
+  senderName: "Ada",
+  status: "",
+  text: "Olá! Tenho interesse e queria mais informações, por favor.",
+  content: REAL_CTWA_CONTENT,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -425,6 +484,8 @@ beforeEach(() => {
   h.state.conversation = { id: "conv-1", status: "open", account_id: "acc-1" };
   h.state.conversationCreated = false;
   h.state.contactInserts = [];
+  h.state.contactUpdates = [];
+  h.state.contactUpdateShouldError = false;
   h.state.recipient = null;
   h.state.recipientUpdates = [];
   h.state.configUpdates = [];
@@ -440,6 +501,7 @@ beforeEach(() => {
     id: "contact-1",
     name: "Ada",
     phone: "15551230000",
+    ctwa_clid: null,
   });
   h.resolveInboundMedia.mockResolvedValue({ mediaUrl: null, mediaType: null });
   h.dispatchInboundToFlows.mockResolvedValue({ consumed: false });
@@ -1324,5 +1386,154 @@ describe("idempotent replay", () => {
     expect(h.state.rpcCalls).toHaveLength(1); // still just the first delivery's bump
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled();
     expect(h.runAutomationsForTrigger).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// parseCtwa — pure narrowing of Message.content (design.md D10,
+// meta-capi-qualified-lead task 2.1). UAZAPI types this field
+// `oneOf: [object, string]`; both shapes must land on the same result.
+// ============================================================
+describe("parseCtwa", () => {
+  it("extracts ctwaClid and sourceId from the real payload, object form", () => {
+    expect(parseCtwa(REAL_CTWA_CONTENT)).toEqual({
+      ctwaClid: REAL_CTWA_CTWA_CLID,
+      sourceId: REAL_CTWA_SOURCE_ID,
+    });
+  });
+
+  it("extracts the same result when content arrives JSON-serialized as a string", () => {
+    expect(parseCtwa(JSON.stringify(REAL_CTWA_CONTENT))).toEqual({
+      ctwaClid: REAL_CTWA_CTWA_CLID,
+      sourceId: REAL_CTWA_SOURCE_ID,
+    });
+  });
+
+  it("returns null for a message with no externalAdReply", () => {
+    expect(parseCtwa({ contextInfo: {} })).toBeNull();
+    expect(parseCtwa({})).toBeNull();
+    expect(parseCtwa("plain text body")).toBeNull();
+    expect(parseCtwa(undefined)).toBeNull();
+  });
+
+  it("returns null for an empty ctwaClid", () => {
+    expect(
+      parseCtwa({
+        contextInfo: { externalAdReply: { ctwaClid: "", sourceID: "x" } },
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null for malformed JSON in the string form", () => {
+    expect(parseCtwa("{not json")).toBeNull();
+  });
+});
+
+// ============================================================
+// CTWA attribution capture on inbound ingestion (whatsapp-messaging spec,
+// "Inbound ad attribution is captured on the contact"; tasks 2.2-2.5)
+// ============================================================
+describe("CTWA attribution capture", () => {
+  it("captures ctwa_clid, ad_source_id and ctwa_clid_at on the contact", async () => {
+    await runWebhook(envelope("message", CTWA_MESSAGE));
+
+    expect(h.state.contactUpdates).toHaveLength(1);
+    expect(h.state.contactUpdates[0]).toMatchObject({
+      ctwa_clid: REAL_CTWA_CTWA_CLID,
+      ad_source_id: REAL_CTWA_SOURCE_ID,
+    });
+    expect(h.state.contactUpdates[0].ctwa_clid_at).toBeTruthy();
+    // The message itself still ingests normally.
+    expect(h.state.upsertCalls).toHaveLength(1);
+  });
+
+  it("captures the same attribution when content arrives as a JSON string", async () => {
+    await runWebhook(
+      envelope("message", {
+        ...CTWA_MESSAGE,
+        content: JSON.stringify(REAL_CTWA_CONTENT),
+      }),
+    );
+
+    expect(h.state.contactUpdates).toHaveLength(1);
+    expect(h.state.contactUpdates[0]).toMatchObject({
+      ctwa_clid: REAL_CTWA_CTWA_CLID,
+      ad_source_id: REAL_CTWA_SOURCE_ID,
+    });
+  });
+
+  it("an organic message (no ad-referral block) captures nothing", async () => {
+    await runWebhook(envelope("message", TEXT_MESSAGE));
+    expect(h.state.contactUpdates).toHaveLength(0);
+  });
+
+  it("a message with an empty ctwaClid captures nothing", async () => {
+    await runWebhook(
+      envelope("message", {
+        ...CTWA_MESSAGE,
+        content: {
+          contextInfo: {
+            externalAdReply: { ctwaClid: "", sourceID: "120250103171390297" },
+          },
+        },
+      }),
+    );
+    expect(h.state.contactUpdates).toHaveLength(0);
+  });
+
+  it("a redelivered first message (same click already stored) does not move ctwa_clid_at", async () => {
+    h.findExistingContact.mockResolvedValue({
+      id: "contact-1",
+      name: "Ada",
+      phone: "15551230000",
+      ctwa_clid: REAL_CTWA_CTWA_CLID,
+    });
+
+    await runWebhook(envelope("message", CTWA_MESSAGE));
+
+    expect(h.state.contactUpdates).toHaveLength(0);
+  });
+
+  it("later messages with no referral block leave stored attribution unchanged", async () => {
+    h.findExistingContact.mockResolvedValue({
+      id: "contact-1",
+      name: "Ada",
+      phone: "15551230000",
+      ctwa_clid: "old-click-id",
+    });
+
+    await runWebhook(envelope("message", TEXT_MESSAGE));
+
+    expect(h.state.contactUpdates).toHaveLength(0);
+  });
+
+  it("a second, different ad click overwrites the first", async () => {
+    h.findExistingContact.mockResolvedValue({
+      id: "contact-1",
+      name: "Ada",
+      phone: "15551230000",
+      ctwa_clid: "old-click-id",
+    });
+
+    await runWebhook(envelope("message", CTWA_MESSAGE));
+
+    expect(h.state.contactUpdates).toHaveLength(1);
+    expect(h.state.contactUpdates[0]).toMatchObject({
+      ctwa_clid: REAL_CTWA_CTWA_CLID,
+      ad_source_id: REAL_CTWA_SOURCE_ID,
+    });
+  });
+
+  it("a capture failure is logged and never blocks message ingestion", async () => {
+    h.state.contactUpdateShouldError = true;
+
+    const res = await runWebhook(envelope("message", CTWA_MESSAGE));
+
+    expect(res.init?.status ?? 200).toBe(200);
+    expect(h.state.upsertCalls).toHaveLength(1);
+    expect(console.error).toHaveBeenCalledWith(
+      "[webhook] ctwa attribution capture failed:",
+      "contact update boom",
+    );
   });
 });

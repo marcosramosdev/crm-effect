@@ -1984,8 +1984,8 @@
       "psychologist": "Psychologist"
     },
     "persona": "Assistant persona",
-    "metaDatasetId": "Meta dataset ID",
-    "metaAccessToken": "Meta access token",
+    "metaDatasetId": "Meta dataset ID (optional — can be set later)",
+    "metaAccessToken": "Meta access token (optional — can be set later)",
     "submit": "Provision account",
     "submitting": "Provisioning...",
     "successTitle": "Account provisioned",
@@ -1996,6 +1996,44 @@
     "provisionAnother": "Provision another account",
     "failedStep": "Failed at step: {step}",
     "cleanupIncomplete": "Cleanup incomplete — remove by hand: auth user {authUserId}, account {accountId}",
-    "networkError": "Could not reach the server. Try again?"
+    "networkError": "Could not reach the server. Try again?",
+    "metaConfig": {
+      "sectionTitle": "Advertising configuration",
+      "sectionDesc": "Meta Conversions API credentials, per account. Invisible to the client.",
+      "reporting": "Reporting",
+      "notReporting": "Not reporting",
+      "partiallyConfigured": "Partially configured — dataset and token must both be set",
+      "testMode": "Test mode — events are not counted for ad-set optimization",
+      "pendingCount": "{count} pending",
+      "unconfiguredCount": "{count} unconfigured",
+      "noConversionsYet": "No conversions yet",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "saveFailed": "Could not save",
+      "metaDatasetId": "Dataset ID",
+      "metaAccessToken": "Access token",
+      "metaAccessTokenHint": "Leave blank to keep the current token unchanged.",
+      "metaPageId": "Page ID",
+      "metaPageIdHint": "Diagnostics only — never sent to Meta.",
+      "metaEventName": "Event name",
+      "metaEventNameWarning": "Must match the event this account's ad set optimizes for. A mismatch produces zero errors here and zero optimization there.",
+      "metaTestEventCode": "Test event code",
+      "metaTestEventCodeHint": "Set while validating in Events Manager → Test Events. Clear it once confirmed — a code left set means the account reports nothing for optimization while looking fully configured.",
+      "metaSendPh": "Send hashed phone number",
+      "metaSendPhHint": "Requires this account's own consent or privacy-policy basis for sharing a patient's phone number with an ad platform. Leave off until that basis exists.",
+      "setupChecklistTitle": "Setup checklist",
+      "setupChecklist": [
+        "Create a dataset for this clinic in the Effect's own Events Manager, or reuse an existing Pixel of theirs.",
+        "Share the dataset with the client's ad account.",
+        "On that dataset: Settings → Conversions API → Generate access token. Copy it once — Meta does not store it.",
+        "Fill in the dataset ID, token, Page ID and test event code below.",
+        "Qualify one real ad-originated deal and watch it appear in Events Manager → Test Events.",
+        "Clear the test event code. Only then do events count for optimization.",
+        "In Ads Manager, set the ad set's performance goal to this event name, with conversion location WhatsApp."
+      ]
+    }
   }
 }

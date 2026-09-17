@@ -28,35 +28,35 @@ evento que precisa voltar para a Conversions API.
 
 ## Decisões fechadas
 
-| Tema | Decisão |
-|---|---|
-| Criação de contas | Signup público fechado. Formulário interno em `/admin`, acesso por lista de e-mails em `PLATFORM_ADMINS`. |
-| Senha do cliente | Definida pela Effect no provisionamento. Troca não é forçada; banner sugere trocar. |
-| Funil padrão | Modelos por especialidade (dentista, médico, psicólogo) escolhidos no provisionamento. Todos contêm a etapa **"Em contato"** como primeira e travada. |
-| Etapa fixa | `pipeline_stages.is_system` — não pode ser renomeada, apagada nem tirada da primeira posição. |
-| Agendamento | Coluna `deals.scheduled_at TIMESTAMPTZ` (um agendamento "atual" por lead). `expected_close_date` é removida. |
-| Fuso | Coluna `accounts.timezone` com default `America/Sao_Paulo`, fora do formulário. |
-| Status do deal | `won` renomeado para `qualified` em todo o stack (enum, tipos, componentes, i18n). `lost` mantido. |
-| Tracking CTWA | Colunas `ctwa_clid`, `ad_source_id`, `ctwa_clid_at` em `contacts` (último clique vence). |
-| Evento Meta | `Lead` (nome configurável por conta) disparado apenas quando o deal vira `qualified`. `action_source: business_messaging`, `messaging_channel: whatsapp`, `event_id = deal.id`. Enfileirado por trigger no banco, enviado pelo cron. |
-| Destino do evento | **Dataset da WABA**, não Pixel de site. `dataset_id` não vem do webhook: obtido via `POST /v23.0/<WABA_ID>/dataset` e gravado por conta. |
-| Credenciais Meta | Preenchidas pela Effect no provisionamento, cifradas, invisíveis para o cliente: `meta_dataset_id`, `meta_access_token`, `meta_waba_id`, `meta_event_name`, `meta_test_event_code`. |
-| Falhas CAPI | Tabela `meta_capi_events` com status e erro, retry no cron, contador em `/admin`. Tela dedicada fica para depois. |
-| Chave e modelo de IA | Definidos pela Effect via env (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`). `ai_configs.api_key` vira nullable e some da UI do cliente. |
-| Feature flag | IA sai do conjunto escondido. `NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED` continua valendo só para Broadcasts, Automations e Flows. |
-| Auto-reply | Desligado por default. É isso que o cliente "ativa" no onboarding. |
-| Rascunho de IA | Sempre disponível, independente do auto-reply. |
-| Lembrete de agendamento | Template com variáveis, sem IA. Até 3 offsets configuráveis (default 5 dias / 1 dia / 2 horas). |
-| Aprovação de envio | Nenhum lembrete sai sozinho. Vira pendência com **Aprovar / Recusar / Editar e enviar**. |
-| Expiração | Pendência não aprovada até a hora do agendamento expira sozinha. |
-| Botões do lembrete | Confirmar / Remarcar. "Confirmar" grava `appointment_confirmed_at` e **sinaliza** as pendências restantes sem cancelá-las. |
-| Reativação | Nunca automática. Botão por lead gera rascunho de IA a partir do histórico da conversa. |
-| Disparo em lote | Não existe — risco de bloqueio no WhatsApp e mensagem despersonalizada. |
-| Estilo de comunicação | Amigável / Direto / Consultivo / Lembrete de vaga. Default por conta, trocável no momento do envio. |
-| Calendário | Mês e semana, somente leitura. Clicar no agendamento abre a conversa do lead. |
-| Lista de reativação | Aba dentro de `/pipelines`, com filtros de dias sem contato, etapa e agendamento futuro. |
-| Agendador | `pg_cron` + `pg_net` chamando `/api/followups/cron` com `x-cron-secret`. |
-| Instância UAZAPI | Provisionada automaticamente no formulário via `UAZAPI_ADMIN_TOKEN` (já presente em `.env.local`). Cliente só escaneia o QR. |
+| Tema                    | Decisão                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Criação de contas       | Signup público fechado. Formulário interno em `/admin`, acesso por lista de e-mails em `PLATFORM_ADMINS`.                                                                                                                            |
+| Senha do cliente        | Definida pela Effect no provisionamento. Troca não é forçada; banner sugere trocar.                                                                                                                                                  |
+| Funil padrão            | Modelos por especialidade (dentista, médico, psicólogo) escolhidos no provisionamento. Todos contêm a etapa **"Em contato"** como primeira e travada.                                                                                |
+| Etapa fixa              | `pipeline_stages.is_system` — não pode ser renomeada, apagada nem tirada da primeira posição.                                                                                                                                        |
+| Agendamento             | Coluna `deals.scheduled_at TIMESTAMPTZ` (um agendamento "atual" por lead). `expected_close_date` é removida.                                                                                                                         |
+| Fuso                    | Coluna `accounts.timezone` com default `America/Sao_Paulo`, fora do formulário.                                                                                                                                                      |
+| Status do deal          | `won` renomeado para `qualified` em todo o stack (enum, tipos, componentes, i18n). `lost` mantido.                                                                                                                                   |
+| Tracking CTWA           | Colunas `ctwa_clid`, `ad_source_id`, `ctwa_clid_at` em `contacts` (último clique vence).                                                                                                                                             |
+| Evento Meta             | `Lead` (nome configurável por conta) disparado apenas quando o deal vira `qualified`. `action_source: business_messaging`, `messaging_channel: whatsapp`, `event_id = deal.id`. Enfileirado por trigger no banco, enviado pelo cron. |
+| Destino do evento       | **Dataset**, criado no Gerenciador de Eventos da Effect e compartilhado com a conta de anúncio do cliente. Não sai do webhook: é configuração por conta. As clínicas não têm WABA e não vão ter.                                     |
+| Credenciais Meta        | Preenchidas pela Effect no `/admin`, cifradas, invisíveis para o cliente: `meta_dataset_id`, `meta_access_token`, `meta_page_id`, `meta_event_name`, `meta_test_event_code`, `meta_send_ph`. Token gerado no Gerenciador de Eventos — sem app Meta. |
+| Falhas CAPI             | Tabela `meta_capi_events` com status e erro, retry no cron, contador em `/admin`. Tela dedicada fica para depois.                                                                                                                    |
+| Chave e modelo de IA    | Definidos pela Effect via env (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`). `ai_configs.api_key` vira nullable e some da UI do cliente.                                                                                                 |
+| Feature flag            | IA sai do conjunto escondido. `NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED` continua valendo só para Broadcasts, Automations e Flows.                                                                                                    |
+| Auto-reply              | Desligado por default. É isso que o cliente "ativa" no onboarding.                                                                                                                                                                   |
+| Rascunho de IA          | Sempre disponível, independente do auto-reply.                                                                                                                                                                                       |
+| Lembrete de agendamento | Template com variáveis, sem IA. Até 3 offsets configuráveis (default 5 dias / 1 dia / 2 horas).                                                                                                                                      |
+| Aprovação de envio      | Nenhum lembrete sai sozinho. Vira pendência com **Aprovar / Recusar / Editar e enviar**.                                                                                                                                             |
+| Expiração               | Pendência não aprovada até a hora do agendamento expira sozinha.                                                                                                                                                                     |
+| Botões do lembrete      | Confirmar / Remarcar. "Confirmar" grava `appointment_confirmed_at` e **sinaliza** as pendências restantes sem cancelá-las.                                                                                                           |
+| Reativação              | Nunca automática. Botão por lead gera rascunho de IA a partir do histórico da conversa.                                                                                                                                              |
+| Disparo em lote         | Não existe — risco de bloqueio no WhatsApp e mensagem despersonalizada.                                                                                                                                                              |
+| Estilo de comunicação   | Amigável / Direto / Consultivo / Lembrete de vaga. Default por conta, trocável no momento do envio.                                                                                                                                  |
+| Calendário              | Mês e semana, somente leitura. Clicar no agendamento abre a conversa do lead.                                                                                                                                                        |
+| Lista de reativação     | Aba dentro de `/pipelines`, com filtros de dias sem contato, etapa e agendamento futuro.                                                                                                                                             |
+| Agendador               | `pg_cron` + `pg_net` chamando `/api/followups/cron` com `x-cron-secret`.                                                                                                                                                             |
+| Instância UAZAPI        | Provisionada automaticamente no formulário via `UAZAPI_ADMIN_TOKEN` (já presente em `.env.local`). Cliente só escaneia o QR.                                                                                                         |
 
 ### Decisões adiadas conscientemente
 
@@ -295,7 +295,7 @@ tracking CTWA que chega no webhook da UAZAPI (`ctwaClid`, `sourceID`,
 `conversionSource`) é descartado hoje.
 
 Enviar o evento é a parte fácil. O que decide se isso funciona é **identidade e
-prazo**, e é aí que o plano original estava vago.
+prazo**.
 
 ### Como a comunicação se fecha (de ponta a ponta)
 
@@ -316,100 +316,126 @@ cron da change 4  ->  POST graph.facebook.com/v23.0/<dataset_id>/events
 Gerenciador de Eventos  ->  conjunto de anúncios otimiza por esse evento
 ```
 
-### De onde vem cada valor (responde "como consigo o pixel?")
+### Identidade: não existe WABA, e não vai existir
 
-**Não existe Pixel aqui.** Evento de business messaging vai para um **dataset**
-ligado à conta do WhatsApp da clínica (WABA), não para um Pixel de site. E o
-`dataset_id` **não sai do payload do webhook** — não tem como derivar. É
-configuração por conta, obtida uma vez pela Effect.
+As clínicas ficam na UAZAPI, que conecta por QR. Número que vive só no app do
+WhatsApp Business não tem WhatsApp Business Account no Gerenciador do Negócio.
+Isso derruba os dois lados do caminho documentado pela Meta: não há
+`POST /v23.0/<WABA_ID>/dataset` para criar o dataset, e não há
+`user_data.whatsapp_business_account_id` para identificar a conversão.
 
-| Valor | Origem | Observação |
-|---|---|---|
-| `ctwa_clid` | webhook: `message.content.contextInfo.externalAdReply.ctwaClid` | só vem na **primeira** mensagem da conversa aberta pelo anúncio |
-| `ad_source_id` | `externalAdReply.sourceID` (ex.: `120250103171390297`) | ID do criativo. Guardado para diagnóstico, não vai para a Meta |
-| `dataset_id` | `POST /v23.0/<WABA_ID>/dataset` (idempotente: devolve o existente) ou Gerenciador de Eventos | **um dataset por WABA**, imposto pela Meta |
-| `whatsapp_business_account_id` | Configurações do Negócio → Contas do WhatsApp | numérico |
-| `access_token` | System User token no BM da clínica, com `whatsapp_business_management` + `whatsapp_business_manage_events` | cifrado em `accounts` |
-| `event_id` | `deal.id` | nosso, estável entre retentativas |
-| `event_time` | hora da qualificação, **em segundos** | `messageTimestamp` do webhook vem em milissegundos |
+O caminho adotado no lugar: **dataset criado no Gerenciador de Eventos da
+própria Effect**, compartilhado com a conta de anúncio do cliente, com o token
+gerado ali mesmo (dataset → Configurações → Conversions API → Gerar token de
+acesso). Isso dispensa app Meta, System User, verificação de negócio, App Review
+e login OAuth — nada disso é construído.
+
+Resta uma pergunta que a documentação não responde: a Meta aceita um evento de
+business messaging com `ctwa_clid` sozinho, num dataset sem WABA por trás? Isso
+é resolvido por **um experimento manual antes de escrever o sender** (D0 do
+`design.md`), não por leitura.
+
+### De onde vem cada valor
+
+| Valor               | Origem                                                                                                                      | Observação                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `ctwa_clid`         | webhook: `message.content.contextInfo.externalAdReply.ctwaClid`                                                             | só vem na **primeira** mensagem da conversa aberta pelo anúncio |
+| `ad_source_id`      | `externalAdReply.sourceID` (ex.: `120250103171390297`)                                                                      | ID do criativo. Guardado para diagnóstico, não vai para a Meta  |
+| `meta_dataset_id`   | Gerenciador de Eventos no BM da Effect — dataset novo ou Pixel existente, compartilhado com a conta de anúncio do cliente   | configuração por conta, não sai do webhook                      |
+| `meta_access_token` | o mesmo dataset → Configurações → Conversions API → Gerar token de acesso                                                   | copiado uma vez; a Meta não guarda. Cifrado em `accounts`       |
+| `meta_page_id`      | Página de onde o anúncio roda (visível em `externalAdReply.mediaURL`)                                                       | **diagnóstico apenas** — não é enviado à Meta                   |
+| `event_id`          | `deal.id`                                                                                                                   | nosso, estável entre retentativas                               |
+| `event_time`        | hora da qualificação, **em segundos**                                                                                       | `messageTimestamp` do webhook vem em milissegundos              |
 
 O `conversionData` / `ctwaPayload` (base64) é payload cifrado da própria Meta.
 Não é decodificado e não é necessário — a chave de atribuição documentada é o
 `ctwa_clid`.
 
-### O que precisa ser configurado na campanha (fora do código)
+### O que precisa ser configurado fora do código
 
-Nenhuma linha de código garante isso, então vira passo de provisionamento:
-
-1. Número do WhatsApp usado no anúncio vinculado à Página, com atribuição de
-   anúncios habilitada. Sem isso a Meta **não anexa** `externalAdReply` e o
-   `ctwa_clid` nunca chega.
-2. Dataset criado/lido via `POST /v23.0/<WABA_ID>/dataset`.
+1. Dataset criado (ou Pixel reaproveitado) no Gerenciador de Eventos da Effect
+   e **compartilhado com a conta de anúncio do cliente**.
+2. Token gerado nesse dataset e colado no `/admin`.
 3. Conjunto de anúncios com localização da conversão **WhatsApp** e meta de
    desempenho apontando para **o mesmo evento** que o CRM envia
    (`accounts.meta_event_name`, default `Lead`). Nome divergente = zero erro do
    nosso lado e zero otimização do lado deles.
 4. Validação com `test_event_code` (Gerenciador de Eventos → Eventos de Teste)
-   antes de ligar a conta: qualificar um deal real e ver o evento aparecer.
-   Depois **limpar o código** — evento de teste não otimiza campanha.
+   antes de ligar a conta. Depois **limpar o código** — conta esquecida em modo
+   de teste não otimiza nada e parece perfeitamente configurada.
 
 ### What changes
 
 - O webhook passa a persistir `ctwa_clid`, `ad_source_id` e `ctwa_clid_at` em
-  `contacts` quando a mensagem traz `contextInfo.externalAdReply`.
+  `contacts` quando a mensagem traz `contextInfo.externalAdReply`. O campo
+  `content` da UAZAPI é `oneOf: [object, string]`, então o parser trata as duas
+  formas — tratar só objeto grava nada, em silêncio.
 - **Trigger no banco**, não chamada na UI: o status do deal é escrito direto do
-  browser (`deal-form.tsx`, `contact-detail-view.tsx`, board). Um
-  `AFTER UPDATE OF status ON deals` grava a pendência no outbox e cobre todos os
-  escritores de uma vez, congelando o clique no momento da transição.
+  browser por seis componentes diferentes. Um `AFTER UPDATE OF status` mais um
+  `AFTER INSERT` cobrem todos de uma vez, congelando o clique no momento da
+  transição. O trigger é `SECURITY DEFINER` (a 046 revogou `SELECT ON accounts`
+  do role `authenticated`), usa `ON CONFLICT DO NOTHING` e engole exceções — um
+  bug no outbox nunca pode custar uma mudança de status ao cliente.
 - Tabela `meta_capi_events` (outbox) com `status`, `attempts`, `next_attempt_at`,
   `last_error` e índice único `(deal_id, event_name)` — não duplicar vira
   garantia do banco.
+- **Qualificado sem dataset configurado vira linha `unconfigured`**, não
+  silêncio. É o contador que justifica configurar a conta. Não expira e não
+  revive quando a conta for configurada depois: o clique já estaria velho.
+  Qualificado sem clique (orgânico) não gera linha nenhuma.
 - O cron da change 4 ganha um terceiro passo que drena o outbox: `POST` para
   `graph.facebook.com/v23.0/<dataset_id>/events` com
   `action_source: "business_messaging"`, `messaging_channel: "whatsapp"`,
-  `user_data.ctwa_clid`, `user_data.whatsapp_business_account_id` e
+  `user_data.ctwa_clid`, `partner_agent: "effect_crm_1_0"` e
   `event_id = deal.id`. Token no corpo, nunca na URL.
 - **Janela de 7 dias verificada antes do POST.** Clique mais velho que isso vira
-  `expired` com motivo registrado, sem gastar requisição. Ciclo de clínica é
-  longo: isso precisa ser número, não silêncio.
+  `expired` com motivo registrado, sem gastar requisição.
 - Retentativa com backoff (`5min * 2^tentativas`, máx. 6) para erro de rede,
   429 e 5xx; rejeição permanente (clid inválido, payload inválido, OAuth) para
   de tentar e guarda o corpo do erro da Meta na íntegra.
-- Novas colunas em `accounts`: `meta_waba_id`, `meta_event_name` (default
-  `Lead`), `meta_test_event_code`. Preenchidas pela Effect, invisíveis para o
-  cliente. Conta sem `meta_dataset_id` simplesmente não reporta.
-- `/admin`: contadores de pendente / falha / expirado, hora do último tick,
-  marcação de conta incompleta e de conta em modo de teste.
+- Novas colunas em `accounts`: `meta_page_id`, `meta_event_name` (default
+  `Lead`), `meta_test_event_code`, `meta_send_ph`. Fora da lista de
+  `GRANT SELECT` que a 046 estreitou — invisíveis para o cliente.
+- `user_data.ph` (SHA-256 do telefone) atrás de `meta_send_ph`, **default
+  `false`**, ligado por conta só depois que aquela clínica tiver consentimento
+  cobrindo o compartilhamento. Hash calculado no envio, nunca persistido.
+- `/admin`: formulário de edição das credenciais por conta (gate
+  `PLATFORM_ADMINS`, rechecado na rota porque o middleware cobre `/admin` mas
+  não `/api/admin`), contadores de pendente / não configurado / falha /
+  expirado, e aviso de conta em modo de teste.
 
 ### Spec deltas
 
 - Nova capability `meta-conversions`.
 - `openspec/specs/whatsapp-messaging/spec.md` — captura do tracking no inbound.
-- `openspec/specs/provisioning/spec.md` — credenciais Meta ampliadas (WABA,
-  nome do evento, código de teste).
+- `openspec/specs/provisioning/spec.md` — credenciais Meta ampliadas, caminho de
+  edição pós-provisionamento, flag de dado pessoal desligada por default.
 
 ### Arquivos principais
 
-- `supabase/migrations/048_meta_capi.sql` (colunas, tabela, trigger, RLS)
+- `supabase/migrations/048_meta_capi.sql` (colunas, tabela, triggers, RLS)
 - `src/app/api/whatsapp/webhook/[secret]/route.ts` (captura)
 - `src/lib/meta/capi.ts` (payload + envio + classificação de erro)
 - `src/lib/meta/outbox.ts` (claim, frescor, retry)
 - `src/app/api/followups/cron/route.ts` (terceiro passo)
-- `src/lib/provisioning/*`, `src/app/admin/*`
+- `src/app/api/admin/accounts/[id]/meta/route.ts`, `src/app/admin/*`
 
 ### Fora de escopo
 
-Evento no agendamento, evento de `Purchase`, relatório de criativo dentro do
-CRM, hash de telefone/e-mail no `user_data`, criação do dataset pela própria
-aplicação, tela dedicada de erros.
+App Meta próprio e tudo que depende dele (System User, App Review, Facebook
+Login for Business, tela "Conectar Meta"). Evento no agendamento, evento de
+`Purchase`, relatório de criativo dentro do CRM, `external_id` no `user_data`,
+criação do dataset pela própria aplicação, tela dedicada de erros.
 
 ### Verificação
 
-Teste com o payload real do webhook (exemplo do Dr. Arthur Pena) confirmando
-que o `ctwa_clid` é extraído e gravado; qualificar esse deal gera exatamente uma
-linha no outbox; com `meta_test_event_code` preenchido o evento aparece em
-Eventos de Teste; reprocessar uma linha já `sent` não dispara segunda
-requisição e o `event_id` estável é deduplicado pela Meta.
+Teste com o payload real do webhook (exemplo do Dr. Arthur Pena), nas duas
+formas de `content`, confirmando que o `ctwa_clid` é extraído e gravado;
+qualificar esse deal gera exatamente uma linha no outbox; conta sem dataset gera
+`unconfigured`; deal criado já como `qualified` gera linha (é o que pega alguém
+reintroduzindo `BEFORE INSERT`); arrastar um card para Qualificado logado como
+usuário da clínica funciona (é o que pega `SECURITY DEFINER` faltando); com
+`meta_test_event_code` preenchido o evento aparece em Eventos de Teste.
 
 ---
 
@@ -420,19 +446,30 @@ requisição e o `event_id` estável é deduplicado pela Meta.
    válido — vira `expired` em `meta_capi_events`, contado em `/admin`, não
    silêncio. Proporção alta = ajuste operacional (qualificar mais cedo), não
    bug.
-2. **Número sem WABA.** A UAZAPI conecta por QR. Número que vive só no app do
-   WhatsApp Business pode não ter WABA no Gerenciador do Negócio, e
-   `user_data.whatsapp_business_account_id` é exigido pela documentação de
-   business messaging. O passo de Eventos de Teste com um deal real é o que
-   revela isso **antes** de dizer ao cliente que a campanha está otimizando; se
-   não funcionar, o número precisa ir para Cloud API ou Coexistence.
-3. **Nome do evento divergente do conjunto de anúncios.** Falha silenciosa dos
+2. **`ctwa_clid` sozinho pode não bastar.** As clínicas não têm WABA e não vão
+   ter, então `user_data.whatsapp_business_account_id` — exigido pela
+   documentação de business messaging — nunca é enviado. Se a Meta recusar, a
+   change 5 entrega só a captura, e a linha de `error_subcode` fica registrada
+   em `design.md` D0. O experimento manual com `test_event_code` resolve isso
+   **antes** de dizer ao cliente que a campanha está otimizando. Atenção:
+   `events_received: 1` sem o evento aparecer em Eventos de Teste é recusa
+   disfarçada de sucesso.
+3. **Token do Gerenciador de Eventos morre com o acesso de quem o gerou.** Não
+   é token de app; está preso à pessoa e ao dataset. A falha aparece como
+   rejeição permanente por OAuth no outbox, contada em `/admin` — nada avisa
+   antes.
+4. **Nome do evento divergente do conjunto de anúncios.** Falha silenciosa dos
    dois lados. Por isso `meta_event_name` é por conta e o formulário traz o
    aviso.
-4. **Token Meta vencido.** Sem a tela dedicada, o contador em `/admin` é a
-   única superfície. Vale checar periodicamente até a tela existir.
-5. **Auto-reply em contexto clínico.** O toggle existe e vem desligado.
+5. **Conta esquecida em modo de teste.** `meta_test_event_code` preenchido faz
+   a conta parecer configurada e não otimizar nada. O aviso no `/admin` é a
+   única defesa.
+6. **`meta_send_ph` ligado sem texto de consentimento.** Hash de telefone de
+   paciente é dado pessoal pseudonimizado, não anônimo, e num contexto clínico
+   permite inferência de saúde. Default `false`; ligar é decisão com base legal
+   escrita, por conta.
+7. **Auto-reply em contexto clínico.** O toggle existe e vem desligado.
    `src/lib/ai/handoff.ts` já implementa a saída para humano, mas o limiar
    precisa ser calibrado antes de oferecer o recurso a um cliente.
-6. **Remoção de `expected_close_date`.** É destrutiva e sem down-migration.
+8. **Remoção de `expected_close_date`.** É destrutiva e sem down-migration.
    Fazer backup antes de aplicar em produção.

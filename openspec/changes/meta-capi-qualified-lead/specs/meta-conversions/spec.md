@@ -1,192 +1,130 @@
 ## Purpose
 
-Reports the outcome the clinic actually cares about — a lead that became
-qualified — back to Meta against the ad click that produced it, so Click-to-
-WhatsApp campaigns can optimize on qualified leads instead of on replies, and
-so every failure to report is visible rather than silent.
+Records the outcome the clinic actually cares about — a lead that became
+qualified — against the ad click that produced it, so that Click-to-WhatsApp
+campaigns can eventually optimize on qualified leads instead of on replies, and
+so every conversion that cannot be reported is counted rather than lost.
+
+This capability currently covers capture and enqueue only. Delivery to Meta is
+specified once the experiment in `design.md`, D0 has returned; until then a
+qualified lead's conversion is recorded and held, never sent.
+
+While that is true, a conversion awaiting delivery is waiting on a decision
+rather than on a worker, and nothing expires it — the seven-day freshness check
+belongs to the delivery pass that does not exist yet. An operator reading a
+growing count of waiting conversions should read it as "this account would be
+reporting, if reporting were switched on".
 
 ## ADDED Requirements
 
-### Requirement: Qualifying a deal enqueues exactly one conversion event
+### Requirement: Qualifying a deal records exactly one conversion
 
-When a deal transitions into the `qualified` status, the system SHALL record a
-pending conversion event for that deal, regardless of which surface performed
-the status change. The record SHALL capture the click attribution and the
-qualification time at the moment of the transition, so later edits to the
-contact cannot change what is reported.
+When a deal transitions into the `qualified` status, the system SHALL record one
+conversion for that deal, regardless of which surface performed the status
+change. The record SHALL capture the contact's click attribution, the
+qualification time, and the account's configured event name as they stood at the
+moment of the transition, so that later edits to the contact or the account
+cannot change what was recorded.
 
-A deal SHALL produce at most one conversion event for a given event name. A deal
-that leaves `qualified` and returns SHALL NOT produce a second event.
+A deal SHALL produce at most one conversion for a given event name. A deal that
+leaves `qualified` and returns SHALL NOT produce a second one.
 
 #### Scenario: Deal qualified from any surface
 
 - **WHEN** a deal's status changes to `qualified` from the pipeline board, the
   deal form, the contact detail view, or any server-side writer
-- **THEN** a pending conversion event exists for that deal, holding the
-  contact's click identifier and the time of the transition
+- **THEN** one conversion exists for that deal, holding the contact's click
+  identifier and the time of the transition
+
+#### Scenario: Deal created already qualified
+
+- **WHEN** a deal is created with the `qualified` status rather than moved into
+  it
+- **THEN** one conversion is recorded, exactly as for a transition
 
 #### Scenario: Re-qualifying does not duplicate
 
-- **WHEN** a deal that already has a conversion event is moved out of
-  `qualified` and back into it
-- **THEN** no additional conversion event is created
+- **WHEN** a deal that already has a conversion is moved out of `qualified` and
+  back into it
+- **THEN** no additional conversion is recorded
 
-#### Scenario: Contact without ad attribution
+#### Scenario: Attribution is frozen at the transition
 
-- **WHEN** a deal is qualified for a contact that has no click identifier
-  because the conversation started organically
-- **THEN** no conversion event is created and no request is made to Meta
+- **WHEN** a contact's click attribution changes after one of their deals was
+  qualified
+- **THEN** the already-recorded conversion still carries the click that was
+  stored at the time of qualification
 
-#### Scenario: Account without advertising credentials
+### Requirement: A conversion without a click is not recorded
 
-- **WHEN** a deal is qualified in an account that has no dataset identifier
-  configured
-- **THEN** no conversion event is created, and this is treated as an unconfigured
-  account rather than as a failure
+A deal qualified for a contact that carries no click identifier SHALL NOT
+produce a conversion. An organic conversation is an absence of paid origin, not
+a failure, and SHALL NOT be counted as one.
 
-### Requirement: Conversion events are delivered as business-messaging events
+#### Scenario: Organic contact qualified
 
-The system SHALL deliver each pending conversion event to the account's
-configured advertising dataset as a Conversions API server event that identifies
-itself as a WhatsApp business-messaging conversion. The delivered event SHALL
-carry:
+- **WHEN** a deal is qualified for a contact whose conversation did not start
+  from an ad
+- **THEN** no conversion is recorded and nothing is reported anywhere as failed
+  or pending
 
-- the account's configured event name, defaulting to `Lead`
-- the qualification time as the event time
-- an action source of `business_messaging` and a messaging channel of `whatsapp`
-- the contact's click identifier as `ctwa_clid` in the customer information
-- the account's WhatsApp Business Account identifier when one is configured
-- the deal identifier as the event identifier
+### Requirement: A conversion that cannot be reported is counted as unconfigured
 
-The system SHALL NOT send unhashed personal data — phone number, name, or email
-— as customer information.
+When a deal is qualified for a contact that has a click, but the account has no
+dataset configured, the system SHALL record the conversion in an `unconfigured`
+state rather than discarding it. Such conversions SHALL be counted separately
+from those awaiting delivery.
 
-#### Scenario: Event reaches the dataset
+Configuring the account later SHALL NOT make historical `unconfigured`
+conversions eligible for delivery.
 
-- **WHEN** a pending conversion event is delivered for an account with a dataset
-  identifier and access token
-- **THEN** the request targets that account's dataset, carries the click
-  identifier, the business-messaging action source, the WhatsApp messaging
-  channel, and the deal identifier as the event identifier
+#### Scenario: Qualified lead in an unconfigured account
 
-#### Scenario: Event name follows account configuration
+- **WHEN** a deal with a click is qualified in an account that has no dataset
+  identifier
+- **THEN** the conversion is recorded as unconfigured, and the account's count of
+  unreported conversions increases
 
-- **WHEN** an account is configured with an event name other than the default
-- **THEN** the delivered event uses that name, so it can match the event the ad
-  set optimizes for
+#### Scenario: Configuring the account does not resurrect history
 
-#### Scenario: No personal data leaves unhashed
+- **WHEN** an operator fills in the advertising configuration for an account
+  that already has unconfigured conversions
+- **THEN** those conversions remain unconfigured, and only conversions recorded
+  after the configuration are eligible for delivery
 
-- **WHEN** any conversion event is delivered
-- **THEN** the payload contains no plain-text phone number, name, or email
+### Requirement: Recording a conversion never blocks or breaks the user
 
-### Requirement: Delivery is asynchronous, retried, and bounded
+Recording SHALL happen as part of the status change itself, with no outbound
+network call in the user's request path. A user qualifying a deal SHALL see the
+status change succeed at normal speed.
 
-Delivery SHALL NOT happen inside a user-facing request: qualifying a deal SHALL
-succeed and return without waiting for Meta. A scheduled worker SHALL deliver
-pending events, retry transient failures with increasing delay up to a bounded
-number of attempts, and stop retrying an event that Meta rejects permanently.
+#### Scenario: No outbound call while qualifying
 
-Every attempt's outcome SHALL be recorded on the event, including the error
-reported by Meta, so a failure can be diagnosed without reproducing it.
+- **WHEN** a user qualifies a deal
+- **THEN** the status change completes without any request to an external
+  service
 
-#### Scenario: Qualifying is not blocked by Meta
+### Requirement: Recorded conversions are never readable by clinic users
 
-- **WHEN** Meta is slow or unreachable at the moment a deal is qualified
-- **THEN** the status change completes normally and the event stays pending
+Conversion records SHALL be accessible only to the platform's own server-side
+processes. No clinic-facing session SHALL be able to read, create, or modify
+them, in any form.
 
-#### Scenario: Transient failure is retried
+#### Scenario: Clinic session cannot read conversions
 
-- **WHEN** delivery fails with a network error or a retryable response
-- **THEN** the event remains eligible for a later attempt, with the attempt
-  count and last error recorded
+- **WHEN** an authenticated clinic session queries the conversion records
+- **THEN** it receives nothing
 
-#### Scenario: Permanent rejection stops retrying
-
-- **WHEN** Meta rejects the event for a reason that will not change on retry,
-  such as an invalid click identifier or an unauthorized token
-- **THEN** the event is marked failed, the reason is retained, and no further
-  attempts are made
-
-#### Scenario: Attempts are bounded
-
-- **WHEN** an event has exhausted the configured maximum number of attempts
-- **THEN** it is marked failed and stops consuming worker time
-
-### Requirement: Stale clicks are expired instead of being sent
-
-Meta attributes a conversion only within seven days of the ad click. The system
-SHALL NOT attempt delivery for an event whose click is older than that window.
-Such an event SHALL be marked expired with that reason recorded, and SHALL be
-counted separately from delivery failures.
-
-#### Scenario: Click older than the attribution window
-
-- **WHEN** a pending event's click identifier was captured more than seven days
-  before the qualification time
-- **THEN** the event is marked expired with the stale-click reason and no request
-  is made to Meta
-
-#### Scenario: Expired events are countable
-
-- **WHEN** an operator reviews conversion health
-- **THEN** expired events are reported separately from failed ones
-
-### Requirement: Redelivery does not double-count a conversion
-
-Each conversion event SHALL keep a stable event identifier across every delivery
-attempt, so an event delivered twice — by a retry, a replay, or a worker running
-concurrently — is counted once by Meta.
-
-#### Scenario: Retry reuses the identifier
-
-- **WHEN** an event is retried after a transient failure
-- **THEN** the retried request carries the same event identifier as the first
-  attempt
-
-#### Scenario: Concurrent workers do not send twice
-
-- **WHEN** two worker runs overlap
-- **THEN** a given pending event is claimed by only one of them
-
-### Requirement: Test mode is explicit and reversible
-
-An account MAY carry a test event code. While one is present, delivered events
-SHALL be marked as test events so they appear in Meta's test view without being
-used for ad optimization. The operator surface SHALL show which accounts are in
-test mode, so an account is not left there by accident.
-
-#### Scenario: Test code is applied
-
-- **WHEN** an account has a test event code configured
-- **THEN** delivered events carry that code
-
-#### Scenario: Test mode is visible
-
-- **WHEN** an operator reviews accounts
-- **THEN** accounts with a test event code configured are shown as being in test
-  mode
-
-#### Scenario: Clearing the code resumes real reporting
-
-- **WHEN** the test event code is removed from an account
-- **THEN** subsequent events are delivered as ordinary, optimizable conversions
-
-### Requirement: Operators can see conversion delivery health
+### Requirement: Operators can see conversion health
 
 The operator console SHALL report, without requiring database access: the number
-of pending, failed and expired conversion events, when the delivery worker last
-ran, and for each account whether its advertising configuration is complete.
+of conversions awaiting delivery, the number recorded as unconfigured, and for
+each account whether its advertising configuration is complete.
 
-#### Scenario: Failures are visible
+#### Scenario: Unreported conversions are visible
 
-- **WHEN** conversion events have failed
-- **THEN** the operator console shows the failure count
-
-#### Scenario: A stalled worker is visible
-
-- **WHEN** the delivery worker has not run recently
-- **THEN** the operator console shows when it last ran
+- **WHEN** an account has accumulated unconfigured conversions
+- **THEN** the operator console shows that count for that account
 
 #### Scenario: Incomplete configuration is visible
 
