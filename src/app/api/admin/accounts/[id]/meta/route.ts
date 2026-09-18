@@ -22,6 +22,7 @@ import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/a
 import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
 import { encrypt } from "@/lib/whatsapp/encryption";
+import { validateMetaEventName } from "@/lib/meta/event-name";
 
 interface MetaPatchBody {
   metaDatasetId?: unknown;
@@ -31,9 +32,6 @@ interface MetaPatchBody {
   metaTestEventCode?: unknown;
   metaSendPh?: unknown;
 }
-
-// Matches common Meta event names (Lead, Purchase, CompleteRegistration, …).
-const EVENT_NAME_RE = /^[A-Za-z0-9_]+$/;
 
 /**
  * A plain-text config field: absent from the body leaves the column
@@ -88,18 +86,11 @@ export async function PATCH(
     // account completely untouched, not partially updated with the
     // other fields in the same request (tasks.md 5.5).
     if (body.metaEventName !== undefined) {
-      const eventName =
-        typeof body.metaEventName === "string" ? body.metaEventName.trim() : "";
-      if (!EVENT_NAME_RE.test(eventName)) {
-        return NextResponse.json(
-          {
-            error:
-              "meta_event_name must be a non-empty token of letters, digits, or underscore",
-          },
-          { status: 400 },
-        );
+      const eventName = validateMetaEventName(body.metaEventName);
+      if (eventName.error) {
+        return NextResponse.json({ error: eventName.error }, { status: 400 });
       }
-      patch.meta_event_name = eventName;
+      patch.meta_event_name = eventName.value;
     }
 
     if (typeof body.metaSendPh === "boolean") {

@@ -66,8 +66,13 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => createClient(),
 }));
 
-const { getCurrentAccount, UnauthorizedError, ForbiddenError } =
-  await import("./account");
+const {
+  getCurrentAccount,
+  toErrorResponse,
+  UnauthorizedError,
+  ForbiddenError,
+  AccountSuspendedError,
+} = await import("./account");
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -174,5 +179,86 @@ describe("getCurrentAccount", () => {
     await expect(getCurrentAccount()).rejects.toThrow(
       "Profile is not linked to an account",
     );
+  });
+
+  // admin-client-lifecycle tasks.md 4.2 — deactivation is enforced here
+  // and nowhere else for an authenticated caller (design.md D2).
+  describe("a deactivated account", () => {
+    function suspendedClient() {
+      return makeClient({
+        user: { id: "user-1" },
+        byTable: {
+          profiles: {
+            data: { account_id: "acct-1", account_role: "owner" },
+            error: null,
+          },
+          accounts: {
+            data: {
+              id: "acct-1",
+              name: "Acme",
+              deactivated_at: "2026-09-18T12:00:00Z",
+            },
+            error: null,
+          },
+        },
+      });
+    }
+
+    it("turns its member away with AccountSuspendedError", async () => {
+      const { client } = suspendedClient();
+      createClient.mockReturnValue(client);
+      await expect(getCurrentAccount()).rejects.toBeInstanceOf(
+        AccountSuspendedError,
+      );
+    });
+
+    it("costs no extra query — the same two reads as an active account", async () => {
+      const { client, calls } = suspendedClient();
+      createClient.mockReturnValue(client);
+      await expect(getCurrentAccount()).rejects.toBeInstanceOf(
+        AccountSuspendedError,
+      );
+      expect(calls.map((c) => c.table)).toEqual(["profiles", "accounts"]);
+      expect(calls[1].columns).toContain("deactivated_at");
+    });
+
+    it("lets an active account through, deactivated_at being null", async () => {
+      const { client } = makeClient({
+        user: { id: "user-1" },
+        byTable: {
+          profiles: {
+            data: { account_id: "acct-1", account_role: "owner" },
+            error: null,
+          },
+          accounts: {
+            data: { id: "acct-1", name: "Acme", deactivated_at: null },
+            error: null,
+          },
+        },
+      });
+      createClient.mockReturnValue(client);
+      await expect(getCurrentAccount()).resolves.toMatchObject({
+        accountId: "acct-1",
+      });
+    });
+  });
+});
+
+// tasks.md 4.1 — a suspended account answers 403, distinguishable from
+// a role refusal so the browser can say which one happened.
+describe("toErrorResponse", () => {
+  it("answers 403 with a suspended marker", async () => {
+    const response = toErrorResponse(new AccountSuspendedError());
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Account suspended",
+      suspended: true,
+    });
+  });
+
+  it("keeps a plain ForbiddenError distinguishable", async () => {
+    const response = toErrorResponse(new ForbiddenError());
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 });

@@ -1,5 +1,10 @@
 /**
  * Specialty pipeline templates (client-provisioning design.md D8).
+ *
+ * Two of them, the dentist and the physician, because those are the two
+ * funnels the agency implements (admin-client-lifecycle design.md D7).
+ * A template is read once, at creation, so changing the set never
+ * touches an account that already exists.
  * Defined in code, not data — the set only changes on a deploy, and
  * a templates table would need CRUD, RLS, and an editor for three
  * rows nobody outside the repository edits.
@@ -8,12 +13,11 @@
  * Colours reuse the STAGE_COLORS palette from pipeline-settings.tsx.
  */
 
-export type SpecialtyKey = "dentist" | "physician" | "psychologist";
+export type SpecialtyKey = "dentist" | "physician";
 
 export const SPECIALTY_KEYS: readonly SpecialtyKey[] = [
   "dentist",
   "physician",
-  "psychologist",
 ] as const;
 
 export interface TemplateStage {
@@ -23,7 +27,14 @@ export interface TemplateStage {
   color: string;
 }
 
-const STAGE_COLORS = ["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
+const STAGE_COLORS = [
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#a855f7",
+  "#ec4899",
+  "#f43f5e",
+];
 
 function template(names: string[]): TemplateStage[] {
   return names.map((name, position) => ({
@@ -38,6 +49,7 @@ export const SPECIALTY_TEMPLATES: Record<SpecialtyKey, TemplateStage[]> = {
   dentist: template([
     "Em contato",
     "Avaliação agendada",
+    "Avaliação realizada",
     "Orçamento enviado",
     "Tratamento aceito",
     "Perdido",
@@ -47,12 +59,6 @@ export const SPECIALTY_TEMPLATES: Record<SpecialtyKey, TemplateStage[]> = {
     "Consulta agendada",
     "Consulta realizada",
     "Retorno / exames",
-    "Perdido",
-  ]),
-  psychologist: template([
-    "Em contato",
-    "Sessão experimental agendada",
-    "Sessão realizada",
     "Em acompanhamento",
     "Perdido",
   ]),

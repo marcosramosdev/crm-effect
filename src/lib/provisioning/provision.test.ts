@@ -10,6 +10,10 @@ let accountsDeleteFails = false;
 let gatewayFails = false;
 let lastWhatsappConfigUpdate: Record<string, unknown> | null = null;
 let lastAccountsUpdate: Record<string, unknown> | null = null;
+let lastPipelineInsert: Record<string, unknown> | null = null;
+let lastStagesInsert: Record<string, unknown>[] | null = null;
+let lastAiConfigInsert: Record<string, unknown> | null = null;
+let lastCreateUserArgs: Record<string, unknown> | null = null;
 
 vi.mock("@/lib/whatsapp/encryption", () => ({
   encrypt: (v: string) => `enc:${v}`,
@@ -29,8 +33,9 @@ function makeDb() {
   return {
     auth: {
       admin: {
-        createUser: vi.fn(async () => {
+        createUser: vi.fn(async (args: Record<string, unknown>) => {
           calls.push("auth:createUser");
+          lastCreateUserArgs = args;
           return { data: { user: { id: "user-1" } }, error: null };
         }),
         deleteUser: vi.fn(async () => {
@@ -45,8 +50,13 @@ function makeDb() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const builder: any = {};
       builder.select = () => builder;
-      builder.insert = () => {
+      builder.insert = (vals: Record<string, unknown> | Record<string, unknown>[]) => {
         mode = "insert";
+        if (table === "pipelines") lastPipelineInsert = vals as Record<string, unknown>;
+        if (table === "pipeline_stages") {
+          lastStagesInsert = vals as Record<string, unknown>[];
+        }
+        if (table === "ai_configs") lastAiConfigInsert = vals as Record<string, unknown>;
         return builder;
       };
       builder.update = (vals: Record<string, unknown>) => {
@@ -137,6 +147,10 @@ beforeEach(() => {
   gatewayFails = false;
   lastWhatsappConfigUpdate = null;
   lastAccountsUpdate = null;
+  lastPipelineInsert = null;
+  lastStagesInsert = null;
+  lastAiConfigInsert = null;
+  lastCreateUserArgs = null;
 });
 
 afterEach(() => {
@@ -244,6 +258,126 @@ describe("provision", () => {
       const { provision } = await import("./provision");
       await provision({ ...INPUT, metaDatasetId: undefined, metaAccessToken: undefined });
       expect(lastAccountsUpdate).toEqual({ name: INPUT.clinicName });
+    });
+
+    // admin-console tasks.md 5.1 — the Page id and the event name join
+    // the form so an account leaves it fully configured, and stay
+    // optional like the other two.
+    it("provisions with all four advertising fields", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaPageId: "page-1", metaEventName: "Purchase" });
+      expect(lastAccountsUpdate).toEqual({
+        name: INPUT.clinicName,
+        meta_dataset_id: "dataset-1",
+        meta_access_token: "enc:token-1",
+        meta_page_id: "page-1",
+        meta_event_name: "Purchase",
+      });
+    });
+
+    it("leaves the Page id and event name off the update when absent", async () => {
+      const { provision } = await import("./provision");
+      await provision(INPUT);
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_page_id");
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_event_name");
+    });
+
+    it("never writes a test event code", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaPageId: "page-1", metaEventName: "Lead" });
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_test_event_code");
+    });
+  });
+
+  // tasks.md 1.1/1.2 — an address and a password are the whole required
+  // input; everything else resolves to a default in one place.
+  describe("address and password alone", () => {
+    const MINIMAL = {
+      clientEmail: "cliente1@effect.com",
+      clientPassword: "correct-horse",
+    };
+
+    it("names the account after the e-mail's local part", async () => {
+      const { provision } = await import("./provision");
+      await provision(MINIMAL);
+      expect(lastAccountsUpdate).toEqual({ name: "cliente1" });
+      expect(lastPipelineInsert).toMatchObject({ name: "cliente1" });
+    });
+
+    it("reuses that name for the sign-in identity's full name", async () => {
+      const { provision } = await import("./provision");
+      await provision(MINIMAL);
+      expect(lastCreateUserArgs).toMatchObject({
+        user_metadata: { full_name: "cliente1" },
+      });
+    });
+
+    it("seeds the dentist template when no specialty is chosen", async () => {
+      const { provision } = await import("./provision");
+      const { SPECIALTY_TEMPLATES } = await import("./templates");
+      await provision(MINIMAL);
+      expect((lastStagesInsert ?? []).map((s) => s.name)).toEqual(
+        SPECIALTY_TEMPLATES.dentist.map((s) => s.name),
+      );
+    });
+
+    it("creates the assistant with an empty persona", async () => {
+      const { provision } = await import("./provision");
+      await provision(MINIMAL);
+      expect(lastAiConfigInsert).toMatchObject({
+        system_prompt: "",
+        auto_reply_enabled: false,
+      });
+    });
+
+    it("prefers a supplied clinic name over the fallback", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...MINIMAL, clinicName: "Clínica Teste" });
+      expect(lastAccountsUpdate).toEqual({ name: "Clínica Teste" });
+    });
+
+    it("ignores a whitespace-only clinic name", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...MINIMAL, clinicName: "   " });
+      expect(lastAccountsUpdate).toEqual({ name: "cliente1" });
+    });
+
+    it("rolls back cleanly when the gateway fails on a minimal provision", async () => {
+      const { provision, ProvisionError } = await import("./provision");
+      gatewayFails = true;
+
+      let caught: unknown;
+      try {
+        await provision(MINIMAL);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(ProvisionError);
+      expect((caught as InstanceType<typeof ProvisionError>).step).toBe(
+        "provision_gateway",
+      );
+      expect(calls.filter((c) => c === "accounts:delete")).toHaveLength(1);
+      expect(calls.filter((c) => c === "auth:deleteUser")).toHaveLength(1);
+    });
+  });
+
+  // tasks.md 1.2 — the fallback must never produce an empty name.
+  describe("accountNameFromEmail", () => {
+    it("takes the local part", async () => {
+      const { accountNameFromEmail } = await import("./provision");
+      expect(accountNameFromEmail("cliente1@effect.com")).toBe("cliente1");
+    });
+
+    it("falls back to the whole address when the local part has no letter or digit", async () => {
+      const { accountNameFromEmail } = await import("./provision");
+      expect(accountNameFromEmail("...@effect.com")).toBe("...@effect.com");
+      expect(accountNameFromEmail("-@effect.com")).toBe("-@effect.com");
+    });
+
+    it("keeps non-ASCII local parts", async () => {
+      const { accountNameFromEmail } = await import("./provision");
+      expect(accountNameFromEmail("josé@effect.com")).toBe("josé");
     });
   });
 });

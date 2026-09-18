@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { SPECIALTY_KEYS, SPECIALTY_TEMPLATES } from "./templates";
 
 describe("SPECIALTY_TEMPLATES", () => {
+  // admin-client-lifecycle tasks.md 2.1 — the operator picks one of two.
+  it("offers exactly the dentist and the physician", () => {
+    expect([...SPECIALTY_KEYS]).toEqual(["dentist", "physician"]);
+    expect(Object.keys(SPECIALTY_TEMPLATES)).toEqual([...SPECIALTY_KEYS]);
+  });
+
   it.each(SPECIALTY_KEYS)("%s starts with the system stage", (key) => {
     const stages = SPECIALTY_TEMPLATES[key];
     expect(stages[0]).toMatchObject({

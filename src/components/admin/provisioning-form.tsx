@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
+import { DEFAULT_META_EVENT_NAME } from "@/lib/meta/event-name";
 
 interface FormState {
   clinicName: string;
@@ -34,6 +35,8 @@ interface FormState {
   persona: string;
   metaDatasetId: string;
   metaAccessToken: string;
+  metaPageId: string;
+  metaEventName: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -45,6 +48,12 @@ const EMPTY_FORM: FormState = {
   persona: "",
   metaDatasetId: "",
   metaAccessToken: "",
+  metaPageId: "",
+  // The column default, pre-filled so the account leaves the form
+  // fully configured. No test event code here — it is meant to be
+  // cleared after validation, and an account left in test mode reports
+  // nothing while looking configured (admin-console spec.md).
+  metaEventName: DEFAULT_META_EVENT_NAME,
 };
 
 interface FailureResult {
@@ -173,22 +182,6 @@ export function ProvisioningForm() {
             </div>
           )}
 
-          <Field label={t("clinicName")}>
-            <Input
-              value={form.clinicName}
-              onChange={(e) => set("clinicName", e.target.value)}
-              required
-            />
-          </Field>
-
-          <Field label={t("clientFullName")}>
-            <Input
-              value={form.clientFullName}
-              onChange={(e) => set("clientFullName", e.target.value)}
-              required
-            />
-          </Field>
-
           <Field label={t("clientEmail")}>
             <Input
               type="email"
@@ -226,30 +219,70 @@ export function ProvisioningForm() {
             </Select>
           </Field>
 
-          <Field label={t("persona")}>
-            <Textarea
-              value={form.persona}
-              onChange={(e) => set("persona", e.target.value)}
-              rows={4}
-              required
-            />
-          </Field>
+          {/* Everything an operator can fill in later lives behind one
+              disclosure, so the two fields that create an account are
+              the only ones in view (provisioning spec.md, "Optional
+              fields do not obstruct creation"; design.md D8). */}
+          <details className="border-border rounded-md border px-3 py-2">
+            <summary className="text-muted-foreground cursor-pointer text-sm select-none">
+              {t("optionalSection")}
+            </summary>
 
-          <Field label={t("metaDatasetId")}>
-            <Input
-              value={form.metaDatasetId}
-              onChange={(e) => set("metaDatasetId", e.target.value)}
-            />
-          </Field>
+            <div className="mt-4 space-y-4">
+              <Field label={t("clinicName")}>
+                <Input
+                  value={form.clinicName}
+                  onChange={(e) => set("clinicName", e.target.value)}
+                  placeholder={t("clinicNamePlaceholder")}
+                />
+              </Field>
 
-          <Field label={t("metaAccessToken")}>
-            <Input
-              type="text"
-              autoComplete="off"
-              value={form.metaAccessToken}
-              onChange={(e) => set("metaAccessToken", e.target.value)}
-            />
-          </Field>
+              <Field label={t("clientFullName")}>
+                <Input
+                  value={form.clientFullName}
+                  onChange={(e) => set("clientFullName", e.target.value)}
+                />
+              </Field>
+
+              <Field label={t("persona")}>
+                <Textarea
+                  value={form.persona}
+                  onChange={(e) => set("persona", e.target.value)}
+                  rows={4}
+                />
+              </Field>
+
+              <Field label={t("metaDatasetId")}>
+                <Input
+                  value={form.metaDatasetId}
+                  onChange={(e) => set("metaDatasetId", e.target.value)}
+                />
+              </Field>
+
+              <Field label={t("metaAccessToken")}>
+                <Input
+                  type="text"
+                  autoComplete="off"
+                  value={form.metaAccessToken}
+                  onChange={(e) => set("metaAccessToken", e.target.value)}
+                />
+              </Field>
+
+              <Field label={t("metaPageId")}>
+                <Input
+                  value={form.metaPageId}
+                  onChange={(e) => set("metaPageId", e.target.value)}
+                />
+              </Field>
+
+              <Field label={t("metaEventName")}>
+                <Input
+                  value={form.metaEventName}
+                  onChange={(e) => set("metaEventName", e.target.value)}
+                />
+              </Field>
+            </div>
+          </details>
 
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? (

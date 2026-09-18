@@ -55,6 +55,21 @@ export class ForbiddenError extends Error {
 }
 
 /**
+ * The caller's account has been taken out of service by a platform
+ * operator (admin-console spec.md, "A deactivated account's people
+ * cannot use the product"). Separate from `ForbiddenError` so the
+ * browser can tell "you lack the role" from "this account is
+ * suspended" and show the right message (design.md D2).
+ */
+export class AccountSuspendedError extends Error {
+  readonly status = 403 as const;
+  constructor(message = "Account suspended") {
+    super(message);
+    this.name = "AccountSuspendedError";
+  }
+}
+
+/**
  * Convert one of the typed errors above (or anything else) into a
  * `NextResponse`. Routes can do:
  *
@@ -67,6 +82,12 @@ export class ForbiddenError extends Error {
  * server internals out of the wire.
  */
 export function toErrorResponse(err: unknown): NextResponse {
+  if (err instanceof AccountSuspendedError) {
+    return NextResponse.json(
+      { error: err.message, suspended: true },
+      { status: err.status },
+    );
+  }
   if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
@@ -149,7 +170,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   // RLS, so it stays robust against cache staleness and older schemas.
   const { data: account, error: accountErr } = await supabase
     .from("accounts")
-    .select("id, name")
+    .select("id, name, deactivated_at")
     .eq("id", data.account_id)
     .maybeSingle();
 
@@ -161,6 +182,16 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     // account_id points at no readable account row — orphaned profile
     // or an RLS gap. Same "can't scope this user" outcome as above.
     throw new ForbiddenError("Profile is not linked to an account");
+  }
+
+  // The one enforcement point for deactivation (design.md D2): this
+  // read already happens for every authenticated request, so the check
+  // costs no extra round trip and covers every caller of this module.
+  // The WhatsApp webhook runs under the service-role client and does
+  // NOT pass here — inbound messages must keep being stored for a
+  // deactivated account.
+  if (account.deactivated_at) {
+    throw new AccountSuspendedError();
   }
 
   return {
