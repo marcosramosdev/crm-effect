@@ -38,6 +38,11 @@ export async function moveDealStage(
  * straight into `.update()`, so the TypeScript shape is the only guard
  * on what a caller can write. `scheduled_at` accepts a UTC ISO instant
  * or `null` to clear it.
+ *
+ * `meta_qualified_at` is the conversion mark (migration 049): a UTC ISO
+ * instant marks the lead as worth reporting to Meta, `null` clears the
+ * mark and cancels an undelivered conversion. Both consequences happen
+ * in the database trigger — this write only moves the column.
  */
 export async function updateDealInline(
   db: SupabaseClient,
@@ -46,6 +51,7 @@ export async function updateDealInline(
     title?: string;
     value?: number;
     scheduled_at?: string | null;
+    meta_qualified_at?: string | null;
   },
 ): Promise<MoveDealStageResult> {
   const { error } = await db.from("deals").update(patch).eq("id", dealId);

@@ -7,6 +7,7 @@ import {
   ArchiveRestore,
   Calendar,
   Check,
+  Megaphone,
   Pencil,
   Plus,
   X,
@@ -27,15 +28,16 @@ interface DealCardProps {
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
   isOverlay?: boolean;
-  /** Persist an inline title / value / schedule edit. Optimistic +
-   *  revert is the caller's job; resolves `true` on success. Absent →
-   *  no inline edit. */
+  /** Persist an inline title / value / schedule edit, or the Meta
+   *  conversion mark. Optimistic + revert is the caller's job;
+   *  resolves `true` on success. Absent → no inline edit. */
   onInlineSave?: (
     dealId: string,
     patch: {
       title?: string;
       value?: number;
       scheduled_at?: string | null;
+      meta_qualified_at?: string | null;
     },
   ) => Promise<boolean>;
   /** Told when inline editing (title/value form, schedule popover, or
@@ -105,11 +107,20 @@ export function DealCard({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
+  // Meta conversion mark (migration 049). No confirm step: it is
+  // reversible in one click, unlike archiving, which removes the card.
+  const [marking, setMarking] = useState(false);
+  const marked = !!deal.meta_qualified_at;
+
   const canInline = !!onInlineSave && !isOverlay && canEdit && !isArchivedView;
   const inlineEnabled = canInline;
   const dateEditEnabled = canInline;
   const archiveEnabled =
     !!onArchive && !isOverlay && canEdit && !isArchivedView;
+  // Only an ad-originated contact has a conversion to report, so only
+  // those cards get the control — a toggle wired to nothing is worse
+  // than no toggle (design.md D7 of meta-capi-manual-qualification).
+  const markEnabled = canInline && !!deal.contact?.ctwa_clid;
 
   // Any active inline control drops the drag listeners.
   const busy = editing || dateOpen || confirmArchive;
@@ -167,6 +178,16 @@ export function DealCard({
     setDateOpen(false);
   }
 
+  async function toggleMark(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!onInlineSave || marking) return;
+    setMarking(true);
+    await onInlineSave(deal.id, {
+      meta_qualified_at: marked ? null : new Date().toISOString(),
+    });
+    setMarking(false);
+  }
+
   function handleConfirmArchive(e: React.MouseEvent) {
     e.stopPropagation();
     if (!onArchive) return;
@@ -209,8 +230,25 @@ export function DealCard({
         style={{ backgroundColor: stage?.color ?? "#94a3b8" }}
       />
 
-      {(inlineEnabled || archiveEnabled) && !busy && (
+      {(inlineEnabled || archiveEnabled || markEnabled) && !busy && (
         <div className="absolute top-2 right-2 flex gap-0.5">
+          {markEnabled && (
+            <button
+              type="button"
+              aria-label={marked ? t("unmarkConversion") : t("markConversion")}
+              aria-pressed={marked}
+              title={marked ? t("unmarkConversion") : t("markConversion")}
+              disabled={marking}
+              onClick={toggleMark}
+              className={`hover:bg-background rounded-md p-1 transition-opacity disabled:opacity-40 ${
+                marked
+                  ? "text-primary opacity-100"
+                  : "text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              }`}
+            >
+              <Megaphone className="h-3.5 w-3.5" />
+            </button>
+          )}
           {archiveEnabled && (
             <button
               type="button"
@@ -299,6 +337,19 @@ export function DealCard({
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
                 <X className="h-3 w-3" />
                 {t("lost")}
+              </span>
+            )}
+            {/* The conversion mark is not the status: a qualified deal
+                and a reported one have to be distinguishable at a
+                glance, so this badge stays visible without hovering
+                and never borrows the status badge's Check. */}
+            {marked && (
+              <span
+                title={t("markedConversionTitle")}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400"
+              >
+                <Megaphone className="h-3 w-3" />
+                {t("markedConversion")}
               </span>
             )}
           </div>

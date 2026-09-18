@@ -795,7 +795,11 @@
       "confirmArchivePrompt": "Archive this deal?",
       "cancelArchive": "Cancel",
       "confirmArchive": "Archive",
-      "unarchive": "Unarchive"
+      "unarchive": "Unarchive",
+      "markConversion": "Report as ad conversion",
+      "unmarkConversion": "Stop reporting as ad conversion",
+      "markedConversion": "Conversion",
+      "markedConversionTitle": "Marked to report to the ad platform as a conversion"
     },
     "form": {
       "editDeal": "Edit Deal",
@@ -813,7 +817,6 @@
       "notes": "Notes",
       "notesPlaceholder": "Add notes...",
       "status": "Status",
-
       "markAsWon": "Mark as Won",
       "markAsLost": "Mark as Lost",
       "reopenDeal": "Reopen deal",

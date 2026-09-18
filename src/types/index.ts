@@ -464,6 +464,16 @@ export interface Deal {
    */
   lost_reason?: string | null;
   /**
+   * When an operator marked this lead as worth reporting to Meta as a
+   * conversion (migration 049). `null` / undefined = not marked.
+   * Independent of `status` and of `archived_at`: the status is the
+   * clinic's sales outcome, this is the advertising decision, and
+   * neither implies the other. Setting it enqueues a conversion,
+   * clearing it cancels an undelivered one — both in the DB trigger,
+   * never from here.
+   */
+  meta_qualified_at?: string | null;
+  /**
    * When the deal was archived (migration 043). `null` / undefined =
    * active. Independent of `status` — a won or lost deal can be
    * archived and keeps its status. Archive is a pipeline-board-view

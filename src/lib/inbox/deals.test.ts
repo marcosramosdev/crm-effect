@@ -92,6 +92,36 @@ describe("updateDealInline", () => {
     expect(update).toHaveBeenCalledWith({ scheduled_at: null });
     expect(result).toEqual({ ok: true });
   });
+
+  it("writes the conversion mark for the deal", async () => {
+    const { db, from, update, eq } = fakeDb(null);
+
+    const result = await updateDealInline(db, "deal-1", {
+      meta_qualified_at: "2026-09-18T10:00:00.000Z",
+    });
+
+    expect(from).toHaveBeenCalledWith("deals");
+    expect(update).toHaveBeenCalledWith({
+      meta_qualified_at: "2026-09-18T10:00:00.000Z",
+    });
+    expect(eq).toHaveBeenCalledWith("id", "deal-1");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("sends null to clear the conversion mark rather than dropping it", async () => {
+    const { db, update } = fakeDb(null);
+
+    const result = await updateDealInline(db, "deal-1", {
+      meta_qualified_at: null,
+    });
+
+    // The DB trigger cancels the undelivered conversion off this
+    // write, so an omitted key would silently leave the deal marked.
+    const patch = update.mock.calls[0][0] as Record<string, unknown>;
+    expect("meta_qualified_at" in patch).toBe(true);
+    expect(patch.meta_qualified_at).toBeNull();
+    expect(result).toEqual({ ok: true });
+  });
 });
 
 describe("setDealArchived", () => {

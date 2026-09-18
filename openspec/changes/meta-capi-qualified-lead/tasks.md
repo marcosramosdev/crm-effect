@@ -51,10 +51,10 @@ Runs after section 2, because the probe needs a real stored click.
 
 - [x] 7.1 Run `npm run test`, `npm run lint`, `npm run typecheck`, `npm run build` and verify green
 - [ ] 7.2 Replay the real webhook payload against a local instance; verify all three attribution columns land on the contact
-- [ ] 7.3 Qualify that contact's deal with the account unconfigured; verify exactly one `unconfigured` row with the click snapshot
-- [ ] 7.4 Configure the account, qualify a second ad-originated deal; verify one `pending` row, and verify the first row is still `unconfigured`
+- [ ] 7.3 SUPERSEDED by `meta-capi-manual-qualification`: qualifying no longer enqueues anything. Mark that contact's deal from its board card with the account unconfigured; verify exactly one `unconfigured` row with the click snapshot
+- [ ] 7.4 SUPERSEDED by `meta-capi-manual-qualification`: configure the account, mark a second ad-originated deal from its card; verify one `pending` row, and verify the first row is still `unconfigured`
 - [x] 7.5 Verify `openspec validate meta-capi-qualified-lead --strict` passes and that `docs/plano-changes-openspec.md` no longer describes the WABA model, the Meta app or the System User
 
 ## 8. Delivery — specified only after 4.5
 
-- [ ] 8.1 Blocked on 4.5. If the probe succeeded, append the delivery requirements to `specs/meta-conversions/spec.md` — freshness check before the call, retry classification, bounded attempts, stable `event_id`, test mode, never reviving `unconfigured`, delivery counters — then build `src/lib/meta/capi.ts`, `src/lib/meta/outbox.ts` and the third cron pass against them. If it failed, record the rejection in design.md D0 and close this change as capture-only
+- [ ] 8.1 Blocked on 4.5. If the probe succeeded, append the delivery requirements to `specs/meta-conversions/spec.md` — freshness check before the call, retry classification, bounded attempts, stable `event_id`, test mode, never reviving `unconfigured` and never claiming `canceled`, delivery counters — then build `src/lib/meta/capi.ts`, `src/lib/meta/outbox.ts` and the third cron pass against them. If it failed, record the rejection in design.md D0 and close this change as capture-only
