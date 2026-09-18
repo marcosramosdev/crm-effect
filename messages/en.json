@@ -2033,10 +2033,85 @@
         "Share the dataset with the client's ad account.",
         "On that dataset: Settings → Conversions API → Generate access token. Copy it once — Meta does not store it.",
         "Fill in the dataset ID, token, Page ID and test event code below.",
-        "Qualify one real ad-originated deal and watch it appear in Events Manager → Test Events.",
+        "Mark the conversion on a real ad-originated lead's card (the megaphone button) and watch it appear in Events Manager → Test Events.",
         "Clear the test event code. Only then do events count for optimization.",
         "In Ads Manager, set the ad set's performance goal to this event name, with conversion location WhatsApp."
       ]
+    },
+    "metaPageId": "Page ID",
+    "metaEventName": "Event name",
+    "accounts": {
+      "sectionTitle": "Accounts",
+      "sectionDesc": "Each clinic's WhatsApp connection, advertising configuration and conversions.",
+      "noAccounts": "No accounts provisioned yet.",
+      "pairedAs": "Paired as {phone}",
+      "connection": {
+        "connected": "WhatsApp connected",
+        "connecting": "WhatsApp connecting",
+        "disconnected": "WhatsApp not connected",
+        "hibernated": "WhatsApp hibernated"
+      },
+      "count": {
+        "pending": "{count} waiting to be sent",
+        "unconfigured": "{count} unreportable",
+        "sending": "{count} sending",
+        "sent": "{count} sent",
+        "failed": "{count} failed",
+        "expired": "{count} expired",
+        "canceled": "{count} canceled"
+      }
+    },
+    "accountPage": {
+      "back": "Back to accounts",
+      "setupTitle": "Setup state",
+      "setupDesc": "What the system can check for itself on this account.",
+      "configTitle": "Advertising configuration",
+      "configDesc": "This account's Meta credentials. The client sees none of these fields.",
+      "conversionsTitle": "Conversions",
+      "conversionsDesc": "The 50 most recent conversions recorded for this account."
+    },
+    "setup": {
+      "whatsappConnected": "Client connected WhatsApp",
+      "credentialsPresent": "Dataset ID and token both set",
+      "testModeCleared": "Test event code cleared",
+      "adContactArrived": "An ad-originated contact has arrived",
+      "conversionRecorded": "A conversion has been recorded"
+    },
+    "validate": {
+      "action": "Validate dataset and token",
+      "checking": "Validating…",
+      "hint": "Checks what is typed above, before saving. A blank token checks the stored one. Nothing is recorded.",
+      "ok": "The token can see the dataset “{name}”.",
+      "ownerBusiness": "Business Manager: {name}",
+      "unnamedDataset": "unnamed",
+      "invalidToken": "Invalid or expired token. Generate a new one on the dataset, under Settings → Conversions API.",
+      "businessMismatch": "The token and the dataset sit under different Business Managers. Generate the token inside the Business Manager that owns the dataset.",
+      "didNotComplete": "The check did not complete — Meta could not be reached. This does not mean the credentials are wrong.",
+      "remindersTitle": "The system cannot check these",
+      "reminders": [
+        "Dataset shared with the client's ad account.",
+        "CTWA campaign live, with the ad set's performance goal matching the event name above and conversion location WhatsApp.",
+        "Sign-in credentials delivered to the client through your own channel."
+      ]
+    },
+    "conversions": {
+      "none": "No conversions recorded for this account yet.",
+      "filterAll": "All ({count})",
+      "contact": "Contact",
+      "state": "State",
+      "eventTime": "Recorded at",
+      "attempts": "Attempts",
+      "lastError": "Last error",
+      "unnamed": "Unnamed contact",
+      "status": {
+        "pending": "Waiting to be sent",
+        "unconfigured": "Unreportable",
+        "sending": "Sending",
+        "sent": "Sent",
+        "failed": "Failed",
+        "expired": "Expired",
+        "canceled": "Canceled"
+      }
     }
   }
 }

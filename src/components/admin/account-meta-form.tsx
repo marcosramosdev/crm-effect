@@ -3,129 +3,13 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, HelpCircle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
-export interface AccountMetaRow {
-  id: string;
-  name: string;
-  metaDatasetId: string | null;
-  hasAccessToken: boolean;
-  metaPageId: string | null;
-  metaEventName: string;
-  metaTestEventCode: string | null;
-  metaSendPh: boolean;
-  pendingCount: number;
-  unconfiguredCount: number;
-}
-
-// Operator counters (tasks.md 6.1-6.3) + the D8 edit form (tasks.md 5.6),
-// one row per account. Never receives the access token itself — only
-// `hasAccessToken` — so a client bundle inspection can't recover it
-// (provisioning spec.md, "Credentials are absent from client responses").
-export function MetaAccountsPanel({ accounts }: { accounts: AccountMetaRow[] }) {
-  const t = useTranslations("AdminConsole.metaConfig");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  return (
-    <Card className="border-border bg-card">
-      <CardHeader>
-        <CardTitle className="text-foreground">{t("sectionTitle")}</CardTitle>
-        <CardDescription>{t("sectionDesc")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {accounts.map((account) => (
-          <AccountRow
-            key={account.id}
-            account={account}
-            expanded={expandedId === account.id}
-            onToggle={() =>
-              setExpandedId((prev) => (prev === account.id ? null : account.id))
-            }
-          />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Pure classification of one account's row state (tasks.md 6.1-6.3) —
- * split out from the rendered row so it has a runnable check without
- * standing up a component-rendering test harness this repo doesn't
- * otherwise use.
- */
-export function classifyAccountMetaStatus(account: AccountMetaRow) {
-  const isConfigured = Boolean(account.metaDatasetId) && account.hasAccessToken;
-  const isPartial = Boolean(account.metaDatasetId) !== account.hasAccessToken;
-  const isTestMode = Boolean(account.metaTestEventCode);
-  const hasNoConversions = account.pendingCount === 0 && account.unconfiguredCount === 0;
-  return { isConfigured, isPartial, isTestMode, hasNoConversions };
-}
-
-function AccountRow({
-  account,
-  expanded,
-  onToggle,
-}: {
-  account: AccountMetaRow;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const t = useTranslations("AdminConsole.metaConfig");
-
-  const { isConfigured, isPartial, isTestMode, hasNoConversions } =
-    classifyAccountMetaStatus(account);
-
-  return (
-    <div className="border-border rounded-lg border">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <span className="text-foreground truncate font-medium">{account.name}</span>
-          <Badge variant={isConfigured ? "default" : "outline"}>
-            {isConfigured ? t("reporting") : t("notReporting")}
-          </Badge>
-          {isPartial && <Badge variant="destructive">{t("partiallyConfigured")}</Badge>}
-          {isTestMode && <Badge variant="destructive">{t("testMode")}</Badge>}
-          {hasNoConversions ? (
-            <span className="text-muted-foreground text-xs">{t("noConversionsYet")}</span>
-          ) : (
-            <span className="text-muted-foreground text-xs">
-              {t("pendingCount", { count: account.pendingCount })} ·{" "}
-              {t("unconfiguredCount", { count: account.unconfiguredCount })}
-            </span>
-          )}
-        </div>
-        {expanded ? (
-          <ChevronUp className="text-muted-foreground size-4 shrink-0" />
-        ) : (
-          <ChevronDown className="text-muted-foreground size-4 shrink-0" />
-        )}
-      </button>
-      {expanded && (
-        <div className="border-border border-t px-4 py-4">
-          <AccountMetaForm account={account} />
-        </div>
-      )}
-    </div>
-  );
-}
+import type { AccountMetaRow } from "@/lib/admin/account-status";
 
 interface FormState {
   metaDatasetId: string;
@@ -136,9 +20,22 @@ interface FormState {
   metaSendPh: boolean;
 }
 
-function AccountMetaForm({ account }: { account: AccountMetaRow }) {
+type CheckResult =
+  | { ok: true; datasetName: string | null; ownerBusinessName: string | null }
+  | { ok: false; reason: string; message: string };
+
+/**
+ * The account's advertising configuration, plus the check against Meta.
+ *
+ * The check sends what is currently in the fields rather than what is
+ * stored, so a mistyped dataset id is caught before it is saved, and it
+ * saves nothing itself (design.md D4/D6).
+ */
+export function AccountMetaForm({ account }: { account: AccountMetaRow }) {
   const t = useTranslations("AdminConsole.metaConfig");
+  const tv = useTranslations("AdminConsole.validate");
   const checklist = t.raw("setupChecklist") as string[];
+  const reminders = tv.raw("reminders") as string[];
 
   const [form, setForm] = useState<FormState>({
     metaDatasetId: account.metaDatasetId ?? "",
@@ -149,9 +46,42 @@ function AccountMetaForm({ account }: { account: AccountMetaRow }) {
     metaSendPh: account.metaSendPh,
   });
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [check, setCheck] = useState<CheckResult | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    // A result describes the values that were checked; changing any of
+    // them makes it stale rather than merely old.
+    if (key === "metaDatasetId" || key === "metaAccessToken") setCheck(null);
+  }
+
+  async function onValidate() {
+    setChecking(true);
+    try {
+      const res = await fetch(`/api/admin/accounts/${account.id}/meta/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metaDatasetId: form.metaDatasetId,
+          metaAccessToken: form.metaAccessToken,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCheck({
+          ok: false,
+          reason: "unreachable",
+          message: json?.error ?? tv("didNotComplete"),
+        });
+        return;
+      }
+      setCheck(json as CheckResult);
+    } catch {
+      setCheck({ ok: false, reason: "unreachable", message: tv("didNotComplete") });
+    } finally {
+      setChecking(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -205,6 +135,26 @@ function AccountMetaForm({ account }: { account: AccountMetaRow }) {
         />
       </FormField>
 
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onValidate}
+          disabled={checking || !form.metaDatasetId.trim()}
+        >
+          {checking ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              {tv("checking")}
+            </>
+          ) : (
+            tv("action")
+          )}
+        </Button>
+        <p className="text-muted-foreground text-xs">{tv("hint")}</p>
+        {check && <CheckOutcome result={check} />}
+      </div>
+
       <FormField label={t("metaPageId")} hint={t("metaPageIdHint")}>
         <Input
           value={form.metaPageId}
@@ -249,7 +199,60 @@ function AccountMetaForm({ account }: { account: AccountMetaRow }) {
           t("save")
         )}
       </Button>
+
+      {/* The conditions the system cannot check: reminders, never state,
+          and deliberately with no control that would mark them done
+          (design.md D11). */}
+      <div className="bg-muted/50 rounded-md p-3 text-sm">
+        <p className="text-foreground mb-2 flex items-center gap-2 font-medium">
+          <HelpCircle className="size-4" />
+          {tv("remindersTitle")}
+        </p>
+        <ul className="text-muted-foreground list-disc space-y-1 pl-4">
+          {reminders.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      </div>
     </form>
+  );
+}
+
+function CheckOutcome({ result }: { result: CheckResult }) {
+  const tv = useTranslations("AdminConsole.validate");
+
+  if (result.ok) {
+    return (
+      <p className="flex items-start gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+        <span>
+          {tv("ok", { name: result.datasetName ?? tv("unnamedDataset") })}
+          {result.ownerBusinessName
+            ? ` · ${tv("ownerBusiness", { name: result.ownerBusinessName })}`
+            : ""}
+        </span>
+      </p>
+    );
+  }
+
+  // Only the two failures an operator actually hits are reworded. Any
+  // other rejection keeps Meta's own message, because a generic phrase
+  // would leave nothing to act on (spec, "Unexpected failure keeps
+  // Meta's wording").
+  const worded =
+    result.reason === "invalid_token"
+      ? tv("invalidToken")
+      : result.reason === "business_mismatch"
+        ? tv("businessMismatch")
+        : result.reason === "unreachable"
+          ? tv("didNotComplete")
+          : result.message;
+
+  return (
+    <p className="text-destructive flex items-start gap-2 text-sm">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+      <span>{worded}</span>
+    </p>
   );
 }
 

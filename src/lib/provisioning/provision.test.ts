@@ -245,5 +245,33 @@ describe("provision", () => {
       await provision({ ...INPUT, metaDatasetId: undefined, metaAccessToken: undefined });
       expect(lastAccountsUpdate).toEqual({ name: INPUT.clinicName });
     });
+
+    // admin-console tasks.md 5.1 — the Page id and the event name join
+    // the form so an account leaves it fully configured, and stay
+    // optional like the other two.
+    it("provisions with all four advertising fields", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaPageId: "page-1", metaEventName: "Purchase" });
+      expect(lastAccountsUpdate).toEqual({
+        name: INPUT.clinicName,
+        meta_dataset_id: "dataset-1",
+        meta_access_token: "enc:token-1",
+        meta_page_id: "page-1",
+        meta_event_name: "Purchase",
+      });
+    });
+
+    it("leaves the Page id and event name off the update when absent", async () => {
+      const { provision } = await import("./provision");
+      await provision(INPUT);
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_page_id");
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_event_name");
+    });
+
+    it("never writes a test event code", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...INPUT, metaPageId: "page-1", metaEventName: "Lead" });
+      expect(lastAccountsUpdate).not.toHaveProperty("meta_test_event_code");
+    });
   });
 });

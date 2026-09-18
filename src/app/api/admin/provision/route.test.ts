@@ -105,6 +105,40 @@ describe("POST /api/admin/provision", () => {
     );
   });
 
+  // admin-console tasks.md 5.2 — the event name goes through the same
+  // module the edit surface uses, and a rejected one must create
+  // nothing at all.
+  it("rejects an invalid event name before provisioning", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.isPlatformAdmin.mockReturnValue(true);
+
+    const response = await POST(
+      request({ ...VALID_BODY, metaEventName: "Lead conversion!" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.provision).not.toHaveBeenCalled();
+  });
+
+  it("passes the Page id and event name through when supplied", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
+
+    const response = await POST(
+      request({ ...VALID_BODY, metaPageId: "page-1", metaEventName: "Purchase" }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.provision).toHaveBeenCalledWith(
+      expect.objectContaining({ metaPageId: "page-1", metaEventName: "Purchase" }),
+    );
+  });
+
   it("provisions and returns only the e-mail on success, never the password", async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },

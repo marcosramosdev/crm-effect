@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/account";
 import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
+import { validateMetaEventName } from "@/lib/meta/event-name";
 import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
 import { provision, ProvisionError } from "@/lib/provisioning/provision";
 
@@ -28,6 +29,8 @@ interface ProvisionRequestBody {
   persona?: unknown;
   metaDatasetId?: unknown;
   metaAccessToken?: unknown;
+  metaPageId?: unknown;
+  metaEventName?: unknown;
 }
 
 function requiredString(value: unknown): string | null {
@@ -60,6 +63,24 @@ export async function POST(request: Request) {
       typeof body?.metaAccessToken === "string" && body.metaAccessToken.trim()
         ? body.metaAccessToken.trim()
         : undefined;
+    const metaPageId = requiredString(body?.metaPageId) ?? undefined;
+
+    // The event name is validated through the same module the edit
+    // surface uses, so the two surfaces reject exactly the same values
+    // (admin-console spec.md, "Same event name is rejected in both
+    // places"). Checked before provision() runs: a rejected name must
+    // leave no auth user and no account behind.
+    let metaEventName: string | undefined;
+    if (
+      typeof body?.metaEventName === "string" &&
+      body.metaEventName.trim() !== ""
+    ) {
+      const checked = validateMetaEventName(body.metaEventName);
+      if (checked.error) {
+        return NextResponse.json({ error: checked.error }, { status: 400 });
+      }
+      metaEventName = checked.value;
+    }
 
     if (
       !clinicName ||
@@ -84,6 +105,8 @@ export async function POST(request: Request) {
       persona,
       metaDatasetId,
       metaAccessToken,
+      metaPageId,
+      metaEventName,
     });
 
     return NextResponse.json({ email: result.email }, { status: 201 });

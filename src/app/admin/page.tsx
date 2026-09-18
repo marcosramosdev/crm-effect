@@ -1,6 +1,12 @@
 import { ProvisioningForm } from "@/components/admin/provisioning-form";
-import { MetaAccountsPanel, type AccountMetaRow } from "@/components/admin/meta-accounts-panel";
+import { AccountList } from "@/components/admin/account-list";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
+import {
+  type AccountMetaRow,
+  type ConnectionState,
+  type ConversionCounts,
+  type ConversionStatus,
+} from "@/lib/admin/account-status";
 
 // This page has no dynamic Next.js API (no cookies()/headers() call —
 // the auth check already happened in middleware), so without this it
@@ -12,8 +18,9 @@ export const dynamic = "force-dynamic";
 // this page assumes it only ever renders for a listed operator. Reads
 // through the service-role client, like provisioning: an operator has
 // no membership in the accounts being listed, so the accounts RLS
-// policies would otherwise return nothing (design.md D7).
-async function loadAccountMetaRows(): Promise<AccountMetaRow[]> {
+// policies would otherwise return nothing (design.md D7 of
+// meta-capi-qualified-lead).
+async function loadAccountRows(): Promise<AccountMetaRow[]> {
   const db = supabaseAdmin();
 
   const { data: accounts } = await db
@@ -23,18 +30,26 @@ async function loadAccountMetaRows(): Promise<AccountMetaRow[]> {
     )
     .order("name");
 
-  const { data: events } = await db
-    .from("meta_capi_events")
-    .select("account_id, status")
-    .in("status", ["pending", "unconfigured"]);
+  // The connection state as the gateway last reported it. The webhook
+  // writes this column on every connection callback, so it tracks the
+  // gateway without the console probing it — rendering a list must not
+  // depend on an external service being reachable (design.md D2).
+  const { data: configs } = await db
+    .from("whatsapp_config")
+    .select("account_id, connection_state, paired_phone, paired_at");
 
-  const counts = new Map<string, { pending: number; unconfigured: number }>();
-  for (const row of events ?? []) {
-    const c = counts.get(row.account_id) ?? { pending: 0, unconfigured: 0 };
-    if (row.status === "pending") c.pending++;
-    else if (row.status === "unconfigured") c.unconfigured++;
-    counts.set(row.account_id, c);
-  }
+  const connection = new Map(
+    (configs ?? []).map((c) => [
+      c.account_id as string,
+      {
+        state: (c.connection_state as ConnectionState | null) ?? null,
+        phone: (c.paired_phone as string | null) ?? null,
+        at: (c.paired_at as string | null) ?? null,
+      },
+    ]),
+  );
+
+  const counts = await loadConversionCounts();
 
   return (accounts ?? []).map((a) => ({
     id: a.id as string,
@@ -47,19 +62,47 @@ async function loadAccountMetaRows(): Promise<AccountMetaRow[]> {
     metaEventName: a.meta_event_name as string,
     metaTestEventCode: (a.meta_test_event_code as string | null) ?? null,
     metaSendPh: Boolean(a.meta_send_ph),
-    pendingCount: counts.get(a.id as string)?.pending ?? 0,
-    unconfiguredCount: counts.get(a.id as string)?.unconfigured ?? 0,
+    // An account with no whatsapp_config row at all (a provision that
+    // failed midway) still belongs in the list — it reads as not
+    // connected rather than disappearing.
+    connectionState: connection.get(a.id as string)?.state ?? null,
+    pairedPhone: connection.get(a.id as string)?.phone ?? null,
+    pairedAt: connection.get(a.id as string)?.at ?? null,
+    counts: counts.get(a.id as string) ?? {},
   }));
 }
 
+/**
+ * Every delivery state, counted per account.
+ *
+ * ponytail: counts rows in the process because supabase-js has no
+ * GROUP BY; move to an RPC doing the grouping in SQL if
+ * meta_capi_events passes ~10k rows (design.md D3).
+ */
+export async function loadConversionCounts(): Promise<Map<string, ConversionCounts>> {
+  const { data: events } = await supabaseAdmin()
+    .from("meta_capi_events")
+    .select("account_id, status");
+
+  const counts = new Map<string, ConversionCounts>();
+  for (const row of events ?? []) {
+    const accountId = row.account_id as string;
+    const status = row.status as ConversionStatus;
+    const current = counts.get(accountId) ?? {};
+    current[status] = (current[status] ?? 0) + 1;
+    counts.set(accountId, current);
+  }
+  return counts;
+}
+
 export default async function AdminPage() {
-  const accounts = await loadAccountMetaRows();
+  const accounts = await loadAccountRows();
 
   return (
     <div className="bg-background flex min-h-screen justify-center px-4 py-10">
-      <div className="flex w-full max-w-xl flex-col gap-8">
+      <div className="flex w-full max-w-3xl flex-col gap-8">
         <ProvisioningForm />
-        <MetaAccountsPanel accounts={accounts} />
+        <AccountList accounts={accounts} />
       </div>
     </div>
   );

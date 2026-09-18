@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
+import { DEFAULT_META_EVENT_NAME } from "@/lib/meta/event-name";
 
 interface FormState {
   clinicName: string;
@@ -34,6 +35,8 @@ interface FormState {
   persona: string;
   metaDatasetId: string;
   metaAccessToken: string;
+  metaPageId: string;
+  metaEventName: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -45,6 +48,12 @@ const EMPTY_FORM: FormState = {
   persona: "",
   metaDatasetId: "",
   metaAccessToken: "",
+  metaPageId: "",
+  // The column default, pre-filled so the account leaves the form
+  // fully configured. No test event code here — it is meant to be
+  // cleared after validation, and an account left in test mode reports
+  // nothing while looking configured (admin-console spec.md).
+  metaEventName: DEFAULT_META_EVENT_NAME,
 };
 
 interface FailureResult {
@@ -248,6 +257,20 @@ export function ProvisioningForm() {
               autoComplete="off"
               value={form.metaAccessToken}
               onChange={(e) => set("metaAccessToken", e.target.value)}
+            />
+          </Field>
+
+          <Field label={t("metaPageId")}>
+            <Input
+              value={form.metaPageId}
+              onChange={(e) => set("metaPageId", e.target.value)}
+            />
+          </Field>
+
+          <Field label={t("metaEventName")}>
+            <Input
+              value={form.metaEventName}
+              onChange={(e) => set("metaEventName", e.target.value)}
             />
           </Field>
 

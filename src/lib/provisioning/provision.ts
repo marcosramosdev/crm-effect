@@ -41,6 +41,10 @@ export interface ProvisionInput {
    *  the /admin edit path (provisioning spec.md). */
   metaDatasetId?: string;
   metaAccessToken?: string;
+  /** Diagnostic only — never sent to Meta (admin-console spec.md). */
+  metaPageId?: string;
+  /** Falls back to the column default when absent. */
+  metaEventName?: string;
 }
 
 export type ProvisionStep =
@@ -153,6 +157,10 @@ export async function provision(
       if (input.metaAccessToken) {
         patch.meta_access_token = encrypt(input.metaAccessToken);
       }
+      if (input.metaPageId) patch.meta_page_id = input.metaPageId;
+      // Validated in the route before anything is created, so a bad
+      // name never costs an auth user and a rollback.
+      if (input.metaEventName) patch.meta_event_name = input.metaEventName;
       const { error } = await db.from("accounts").update(patch).eq("id", accountId);
       if (error) throw new Error(error.message);
     });
