@@ -42,6 +42,9 @@ export interface AccountMetaRow {
   pairedPhone: string | null;
   pairedAt: string | null;
   counts: ConversionCounts;
+  /** When an operator took the account out of service; `null` = active
+   *  (admin-console spec.md, migration 050). */
+  deactivatedAt: string | null;
 }
 
 export function classifyAccountMetaStatus(account: AccountMetaRow) {

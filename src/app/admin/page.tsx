@@ -26,7 +26,7 @@ async function loadAccountRows(): Promise<AccountMetaRow[]> {
   const { data: accounts } = await db
     .from("accounts")
     .select(
-      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph",
+      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
     )
     .order("name");
 
@@ -65,6 +65,7 @@ async function loadAccountRows(): Promise<AccountMetaRow[]> {
     // An account with no whatsapp_config row at all (a provision that
     // failed midway) still belongs in the list — it reads as not
     // connected rather than disappearing.
+    deactivatedAt: (a.deactivated_at as string | null) ?? null,
     connectionState: connection.get(a.id as string)?.state ?? null,
     pairedPhone: connection.get(a.id as string)?.phone ?? null,
     pairedAt: connection.get(a.id as string)?.at ?? null,

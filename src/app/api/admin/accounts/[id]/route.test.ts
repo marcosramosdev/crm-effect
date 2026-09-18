@@ -1,0 +1,180 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// tasks.md 5.1–5.4 — the account row itself: its name and whether it is
+// in service. Deactivating also cancels the conversions that were still
+// waiting to be delivered (design.md D4).
+
+const mocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  isPlatformAdmin: vi.fn(),
+  update: vi.fn(),
+  eventsUpdate: vi.fn(),
+  eventsError: null as { message: string } | null,
+  canceledRows: [] as { id: string }[],
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({
+    auth: { getUser: mocks.getUser },
+  }),
+}));
+
+vi.mock("@/lib/provisioning/platform-admins", () => ({
+  isPlatformAdmin: mocks.isPlatformAdmin,
+}));
+
+vi.mock("@/lib/provisioning/admin-client", () => ({
+  supabaseAdmin: () => ({
+    from: (table: string) => ({
+      update: (patch: Record<string, unknown>) => {
+        if (table === "meta_capi_events") {
+          const call = { patch, statuses: [] as string[] };
+          return {
+            eq: () => ({
+              in: (_col: string, statuses: string[]) => {
+                call.statuses = statuses;
+                mocks.eventsUpdate(call);
+                return {
+                  select: () =>
+                    Promise.resolve({
+                      data: mocks.eventsError ? null : mocks.canceledRows,
+                      error: mocks.eventsError,
+                    }),
+                };
+              },
+            }),
+          };
+        }
+        mocks.update(table, patch);
+        return { eq: () => Promise.resolve({ error: null }) };
+      },
+    }),
+  }),
+}));
+
+import { PATCH } from "./route";
+
+function call(body: unknown) {
+  const request = new Request("http://localhost/api/admin/accounts/acct-1", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return PATCH(request, { params: Promise.resolve({ id: "acct-1" }) });
+}
+
+beforeEach(() => {
+  mocks.getUser.mockReset();
+  mocks.isPlatformAdmin.mockReset();
+  mocks.update.mockReset();
+  mocks.eventsUpdate.mockReset();
+  mocks.eventsError = null;
+  mocks.canceledRows = [];
+  mocks.getUser.mockResolvedValue({
+    data: { user: { email: "ops@effect.dev" } },
+  });
+  mocks.isPlatformAdmin.mockReturnValue(true);
+});
+
+describe("PATCH /api/admin/accounts/[id]", () => {
+  it("rejects an unauthenticated request and writes nothing", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null } });
+    const res = await call({ name: "Nova Clínica" });
+    expect(res.status).toBe(401);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-operator session and writes nothing", async () => {
+    mocks.isPlatformAdmin.mockReturnValue(false);
+    const res = await call({ deactivated: true });
+    expect(res.status).toBe(403);
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.eventsUpdate).not.toHaveBeenCalled();
+  });
+
+  describe("rename", () => {
+    it("writes the trimmed name", async () => {
+      const res = await call({ name: "  Nova Clínica  " });
+      expect(res.status).toBe(200);
+      expect(mocks.update).toHaveBeenCalledWith("accounts", {
+        name: "Nova Clínica",
+      });
+    });
+
+    it("refuses a blank name and writes nothing", async () => {
+      const res = await call({ name: "   " });
+      expect(res.status).toBe(400);
+      expect(mocks.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses a name that is not a string", async () => {
+      const res = await call({ name: 42 });
+      expect(res.status).toBe(400);
+      expect(mocks.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("deactivate", () => {
+    it("stamps deactivated_at and cancels the undelivered conversions", async () => {
+      mocks.canceledRows = [{ id: "e1" }, { id: "e2" }];
+
+      const res = await call({ deactivated: true });
+
+      expect(res.status).toBe(200);
+      const [table, patch] = mocks.update.mock.calls[0];
+      expect(table).toBe("accounts");
+      expect(typeof patch.deactivated_at).toBe("string");
+
+      expect(mocks.eventsUpdate).toHaveBeenCalledWith({
+        patch: { status: "canceled" },
+        statuses: ["pending", "unconfigured"],
+      });
+      await expect(res.json()).resolves.toMatchObject({
+        ok: true,
+        canceledConversions: 2,
+      });
+    });
+
+    it("cancels nothing when the account has no waiting conversions", async () => {
+      const res = await call({ deactivated: true });
+      await expect(res.json()).resolves.toMatchObject({
+        canceledConversions: 0,
+      });
+    });
+
+    it("reports the account as deactivated when cancelling fails", async () => {
+      mocks.eventsError = { message: "boom" };
+      const res = await call({ deactivated: true });
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({
+        deactivated: true,
+        canceledConversions: null,
+      });
+    });
+  });
+
+  describe("reactivate", () => {
+    it("clears deactivated_at and cancels nothing", async () => {
+      const res = await call({ deactivated: false });
+      expect(res.status).toBe(200);
+      expect(mocks.update).toHaveBeenCalledWith("accounts", {
+        deactivated_at: null,
+      });
+      expect(mocks.eventsUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  it("refuses a body that asks for nothing", async () => {
+    const res = await call({});
+    expect(res.status).toBe(400);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("renames and deactivates in one write", async () => {
+    const res = await call({ name: "Clínica X", deactivated: true });
+    expect(res.status).toBe(200);
+    const [, patch] = mocks.update.mock.calls[0];
+    expect(patch.name).toBe("Clínica X");
+    expect(typeof patch.deactivated_at).toBe("string");
+  });
+});

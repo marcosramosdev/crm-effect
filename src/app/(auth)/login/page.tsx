@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -36,6 +36,11 @@ function LoginPageInner() {
   // account. After a successful sign-in we send them to the join
   // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
+  // Set by the dashboard layout when a member of a deactivated account
+  // is turned away (admin-console spec.md, "Sign-in is refused while
+  // deactivated"). They must read why they are here, not a
+  // wrong-password message.
+  const suspended = searchParams.get("suspended") === "1";
   const t = useTranslations("LoginPage");
 
   const [email, setEmail] = useState("");
@@ -43,6 +48,19 @@ function LoginPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+
+  // Dropping the session belongs to the browser client: a server
+  // component cannot clear the auth cookies (design.md D3). Without
+  // this, the suspended member keeps a live session that every API
+  // route answers 403 to.
+  useEffect(() => {
+    if (suspended) {
+      void supabase.auth.signOut();
+    }
+    // `supabase` is a fresh client each render; the sign-out must run
+    // once, on the suspended landing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suspended]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +112,12 @@ function LoginPageInner() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            {suspended && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
+                {t("suspended")}
+              </div>
+            )}
+
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}

@@ -30,12 +30,17 @@ import { supabaseAdmin } from "./admin-client";
 import { SPECIALTY_TEMPLATES, type SpecialtyKey } from "./templates";
 
 export interface ProvisionInput {
-  clinicName: string;
-  clientFullName: string;
   clientEmail: string;
   clientPassword: string;
-  specialty: SpecialtyKey;
-  persona: string;
+  /** Falls back to the e-mail's local part (design.md D6). */
+  clinicName?: string;
+  /** Falls back to the resolved account name — it only feeds
+   *  `user_metadata.full_name`. */
+  clientFullName?: string;
+  /** Defaults to DEFAULT_SPECIALTY. */
+  specialty?: SpecialtyKey;
+  /** Defaults to an empty persona, which `ai_configs` accepts. */
+  persona?: string;
   /** Optional at provisioning time — an account with no dataset simply
    *  doesn't report conversions until an operator fills it in later via
    *  the /admin edit path (provisioning spec.md). */
@@ -45,6 +50,40 @@ export interface ProvisionInput {
   metaPageId?: string;
   /** Falls back to the column default when absent. */
   metaEventName?: string;
+}
+
+/** Used when the operator picks no specialty (provisioning spec.md,
+ *  "Unchosen specialty falls back"). */
+export const DEFAULT_SPECIALTY: SpecialtyKey = "dentist";
+
+/**
+ * `cliente1@effect.com` -> `cliente1`.
+ *
+ * An account is never nameless (provisioning spec.md), so a local part
+ * carrying no letter or digit — `"..."@x.com`, a leading-dot address —
+ * falls back to the whole address rather than to an empty name.
+ */
+export function accountNameFromEmail(email: string): string {
+  const local = email.split("@")[0]?.trim() ?? "";
+  return /[\p{L}\p{N}]/u.test(local) ? local : email.trim();
+}
+
+/** The one place the optional inputs of design.md D6 become concrete, so a
+ *  second caller — a seeding script, a test — gets the same defaults. */
+export function resolveProvisionInput(input: ProvisionInput): {
+  clinicName: string;
+  clientFullName: string;
+  specialty: SpecialtyKey;
+  persona: string;
+} {
+  const clinicName =
+    input.clinicName?.trim() || accountNameFromEmail(input.clientEmail);
+  return {
+    clinicName,
+    clientFullName: input.clientFullName?.trim() || clinicName,
+    specialty: input.specialty ?? DEFAULT_SPECIALTY,
+    persona: input.persona ?? "",
+  };
 }
 
 export type ProvisionStep =
@@ -117,6 +156,8 @@ export async function provision(
   input: ProvisionInput,
 ): Promise<{ email: string }> {
   const db = supabaseAdmin();
+  const { clinicName, clientFullName, specialty, persona } =
+    resolveProvisionInput(input);
 
   let authUserId: string | undefined;
   let accountId: string | undefined;
@@ -127,7 +168,7 @@ export async function provision(
         email: input.clientEmail,
         password: input.clientPassword,
         email_confirm: true,
-        user_metadata: { full_name: input.clientFullName },
+        user_metadata: { full_name: clientFullName },
       });
       if (error || !data?.user) {
         throw new Error(
@@ -152,7 +193,7 @@ export async function provision(
     });
 
     await runStep("update_account", async () => {
-      const patch: Record<string, unknown> = { name: input.clinicName };
+      const patch: Record<string, unknown> = { name: clinicName };
       if (input.metaDatasetId) patch.meta_dataset_id = input.metaDatasetId;
       if (input.metaAccessToken) {
         patch.meta_access_token = encrypt(input.metaAccessToken);
@@ -173,7 +214,7 @@ export async function provision(
           .insert({
             account_id: accountId,
             user_id: authUserId,
-            name: input.clinicName,
+            name: clinicName,
           })
           .select("id")
           .single();
@@ -183,7 +224,7 @@ export async function provision(
           );
         }
 
-        const stages = SPECIALTY_TEMPLATES[input.specialty];
+        const stages = SPECIALTY_TEMPLATES[specialty];
         const { data: inserted, error: stagesErr } = await db
           .from("pipeline_stages")
           .insert(
@@ -219,7 +260,7 @@ export async function provision(
     await runStep("create_ai_config", async () => {
       const { error } = await db.from("ai_configs").insert({
         account_id: accountId,
-        system_prompt: input.persona,
+        system_prompt: persona,
         auto_reply_enabled: false,
         is_active: true,
       });

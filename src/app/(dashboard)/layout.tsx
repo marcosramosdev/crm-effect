@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
+import { getCurrentAccount, AccountSuspendedError } from "@/lib/auth/account";
 import { DashboardShell } from "./dashboard-shell";
 
 // Server layout whose only job is to declare "do not index" metadata
@@ -19,10 +22,30 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DashboardLayout({
+// Where a member of a deactivated account is turned away
+// (admin-console spec.md, "A deactivated account's people cannot use
+// the product"). Every API route already refuses them through
+// `getCurrentAccount`; this is what stops them looking at a shell that
+// answers 403 to everything.
+//
+// The session is dropped on the login screen rather than here: a server
+// component cannot clear cookies (`setAll` swallows the write in
+// `@/lib/supabase/server`), so `/login?suspended=1` signs out with the
+// browser client and shows the notice.
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  try {
+    await getCurrentAccount();
+  } catch (err) {
+    if (err instanceof AccountSuspendedError) {
+      redirect("/login?suspended=1");
+    }
+    // Anything else — no session, an unlinked profile — is left to the
+    // shell and the middleware, exactly as before this check existed.
+  }
+
   return <DashboardShell>{children}</DashboardShell>;
 }

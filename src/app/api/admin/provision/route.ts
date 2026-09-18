@@ -48,8 +48,12 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => null)) as ProvisionRequestBody | null;
 
-    const clinicName = requiredString(body?.clinicName);
-    const clientFullName = requiredString(body?.clientFullName);
+    // Only the address and the password are required (provisioning
+    // spec.md, "Address and password alone provision an account").
+    // Everything else resolves to a default inside provision()
+    // (design.md D6), so the route stops rejecting the absent ones.
+    const clinicName = requiredString(body?.clinicName) ?? undefined;
+    const clientFullName = requiredString(body?.clientFullName) ?? undefined;
     const clientEmail = requiredString(body?.clientEmail);
     const clientPassword =
       typeof body?.clientPassword === "string" ? body.clientPassword : null;
@@ -82,14 +86,16 @@ export async function POST(request: Request) {
       metaEventName = checked.value;
     }
 
-    if (
-      !clinicName ||
-      !clientFullName ||
-      !clientEmail ||
-      !clientPassword ||
-      !specialty ||
-      !SPECIALTY_KEYS.includes(specialty as SpecialtyKey)
-    ) {
+    // A supplied specialty must still be one we have a template for; an
+    // absent one falls back to DEFAULT_SPECIALTY in provision().
+    if (specialty && !SPECIALTY_KEYS.includes(specialty as SpecialtyKey)) {
+      return NextResponse.json(
+        { error: "Missing or invalid fields" },
+        { status: 400 },
+      );
+    }
+
+    if (!clientEmail || !clientPassword) {
       return NextResponse.json(
         { error: "Missing or invalid fields" },
         { status: 400 },
@@ -101,7 +107,7 @@ export async function POST(request: Request) {
       clientFullName,
       clientEmail,
       clientPassword,
-      specialty: specialty as SpecialtyKey,
+      specialty: (specialty as SpecialtyKey | null) ?? undefined,
       persona,
       metaDatasetId,
       metaAccessToken,

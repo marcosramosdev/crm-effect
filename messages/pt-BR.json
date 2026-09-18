@@ -11,6 +11,7 @@
     "passwordPlaceholder": "Digite sua senha",
     "signingIn": "Entrando...",
     "signIn": "Entrar",
+    "suspended": "Seu acesso está suspenso. Fale com a agência para reativar sua conta.",
     "noAccount": "Não tem uma conta?",
     "createAccount": "Criar conta"
   },
@@ -1975,7 +1976,7 @@
   },
   "AdminConsole": {
     "title": "Provisionar conta de cliente",
-    "desc": "Um envio cria o login, a conta, o funil, a instância do WhatsApp, o assistente e as credenciais de anúncios.",
+    "desc": "Basta o e-mail e a senha. O restante pode ser preenchido depois pelo painel.",
     "clinicName": "Nome da clínica",
     "clientFullName": "Nome completo do cliente",
     "clientEmail": "E-mail do cliente",
@@ -1983,8 +1984,7 @@
     "specialty": "Especialidade",
     "specialties": {
       "dentist": "Dentista",
-      "physician": "Médico",
-      "psychologist": "Psicólogo"
+      "physician": "Médico"
     },
     "persona": "Persona do assistente",
     "metaDatasetId": "ID do dataset da Meta (opcional — pode ser preenchido depois)",
@@ -2059,7 +2059,10 @@
         "failed": "{count} com falha",
         "expired": "{count} expirada(s)",
         "canceled": "{count} cancelada(s)"
-      }
+      },
+      "deactivatedSection": "Desativadas ({count})",
+      "deactivatedBadge": "Desativada",
+      "deactivatedOn": "Desativada em {date}"
     },
     "accountPage": {
       "back": "Voltar para as contas",
@@ -2068,7 +2071,9 @@
       "configTitle": "Configuração de anúncios",
       "configDesc": "Credenciais da Meta desta conta. O cliente não vê nenhum destes campos.",
       "conversionsTitle": "Conversões",
-      "conversionsDesc": "As 50 conversões mais recentes registradas para esta conta."
+      "conversionsDesc": "As 50 conversões mais recentes registradas para esta conta.",
+      "lifecycleTitle": "Conta",
+      "lifecycleDesc": "Nome, senha do cliente e se a conta está em operação."
     },
     "setup": {
       "whatsappConnected": "WhatsApp conectado pelo cliente",
@@ -2112,6 +2117,35 @@
         "expired": "Expirada",
         "canceled": "Cancelada"
       }
+    },
+    "optionalSection": "Dados opcionais (podem ser preenchidos depois)",
+    "clinicNamePlaceholder": "Em branco: usa a parte do e-mail antes do @",
+    "lifecycle": {
+      "nameLabel": "Nome da conta",
+      "save": "Salvar",
+      "renamed": "Nome atualizado.",
+      "passwordLabel": "Senha do cliente",
+      "passwordHint": "Você escolhe a senha e entrega ao cliente pelo seu próprio canal. Ela é mostrada uma vez, aqui, e nunca é enviada por e-mail.",
+      "passwordPlaceholder": "Nova senha",
+      "reissue": "Redefinir",
+      "passwordReissued": "Senha redefinida. Entregue-a ao cliente.",
+      "copy": "Copiar",
+      "copied": "Copiado.",
+      "clipboardBlocked": "O navegador bloqueou a área de transferência.",
+      "activeTitle": "Conta em operação",
+      "activeDesc": "O cliente consegue entrar normalmente.",
+      "deactivatedTitle": "Conta desativada",
+      "deactivatedDesc": "Desativada em {date}. Nenhum dado foi apagado — reativar devolve tudo como estava.",
+      "deactivate": "Desativar conta",
+      "confirmPrompt": "Digite \"{name}\" para confirmar. O cliente perde o acesso; nada é apagado.",
+      "confirmConversions": "{count} conversão(ões) aguardando envio serão canceladas e não voltam na reativação.",
+      "confirmDeactivate": "Confirmar desativação",
+      "cancel": "Cancelar",
+      "deactivated": "Conta desativada.",
+      "reactivate": "Reativar conta",
+      "reactivated": "Conta reativada.",
+      "failed": "Não foi possível concluir.",
+      "networkError": "Falha de rede. Tente de novo."
     }
   }
 }

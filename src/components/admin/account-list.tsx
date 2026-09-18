@@ -24,8 +24,16 @@ import {
 // spec.md, "The console lists every account with its operational
 // state"). The row never receives the access token itself — only
 // `hasAccessToken`.
+//
+// Deactivated accounts sit in their own section below the active ones,
+// listed rather than hidden ("Deactivated accounts are separated, not
+// hidden"). The split happens here, over the rows the page already
+// loaded — one query still backs the list (design.md D9).
 export function AccountList({ accounts }: { accounts: AccountMetaRow[] }) {
   const t = useTranslations("AdminConsole.accounts");
+
+  const active = accounts.filter((a) => !a.deactivatedAt);
+  const deactivated = accounts.filter((a) => a.deactivatedAt);
 
   return (
     <Card className="border-border bg-card">
@@ -37,7 +45,22 @@ export function AccountList({ accounts }: { accounts: AccountMetaRow[] }) {
         {accounts.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t("noAccounts")}</p>
         ) : (
-          accounts.map((account) => <AccountRow key={account.id} account={account} />)
+          <>
+            {active.map((account) => (
+              <AccountRow key={account.id} account={account} />
+            ))}
+
+            {deactivated.length > 0 && (
+              <div className="space-y-3 pt-4">
+                <p className="text-muted-foreground text-xs font-medium uppercase">
+                  {t("deactivatedSection", { count: deactivated.length })}
+                </p>
+                {deactivated.map((account) => (
+                  <AccountRow key={account.id} account={account} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -50,15 +73,21 @@ function AccountRow({ account }: { account: AccountMetaRow }) {
 
   const { isConfigured, isPartial, isTestMode, isConnected, hasNoConversions } =
     classifyAccountMetaStatus(account);
+  const isDeactivated = Boolean(account.deactivatedAt);
 
   return (
     <Link
       href={`/admin/accounts/${account.id}`}
-      className="border-border hover:bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+      className={`border-border hover:bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+        isDeactivated ? "opacity-60" : ""
+      }`}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-foreground truncate font-medium">{account.name}</span>
+          {isDeactivated && (
+            <Badge variant="destructive">{t("deactivatedBadge")}</Badge>
+          )}
           <Badge variant={isConnected ? "default" : "destructive"}>
             {t(`connection.${account.connectionState ?? "disconnected"}`)}
           </Badge>
@@ -70,6 +99,13 @@ function AccountRow({ account }: { account: AccountMetaRow }) {
         </div>
 
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {account.deactivatedAt && (
+            <span>
+              {t("deactivatedOn", {
+                date: new Date(account.deactivatedAt).toLocaleString(),
+              })}
+            </span>
+          )}
           {isConnected && account.pairedPhone && (
             <span>
               {t("pairedAs", { phone: account.pairedPhone })}

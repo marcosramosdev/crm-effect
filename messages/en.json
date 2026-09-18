@@ -11,6 +11,7 @@
     "passwordPlaceholder": "Enter your password",
     "signingIn": "Signing in...",
     "signIn": "Sign in",
+    "suspended": "Your access is suspended. Contact the agency to have your account reactivated.",
     "noAccount": "Don't have an account?",
     "createAccount": "Create account"
   },
@@ -1975,7 +1976,7 @@
   },
   "AdminConsole": {
     "title": "Provision a client account",
-    "desc": "One submission creates the sign-in, account, pipeline, WhatsApp instance, assistant, and ad credentials.",
+    "desc": "An e-mail address and a password are enough. The rest can be filled in later from the console.",
     "clinicName": "Clinic name",
     "clientFullName": "Client full name",
     "clientEmail": "Client e-mail",
@@ -1983,8 +1984,7 @@
     "specialty": "Specialty",
     "specialties": {
       "dentist": "Dentist",
-      "physician": "Physician",
-      "psychologist": "Psychologist"
+      "physician": "Physician"
     },
     "persona": "Assistant persona",
     "metaDatasetId": "Meta dataset ID (optional — can be set later)",
@@ -2059,7 +2059,10 @@
         "failed": "{count} failed",
         "expired": "{count} expired",
         "canceled": "{count} canceled"
-      }
+      },
+      "deactivatedSection": "Deactivated ({count})",
+      "deactivatedBadge": "Deactivated",
+      "deactivatedOn": "Deactivated on {date}"
     },
     "accountPage": {
       "back": "Back to accounts",
@@ -2068,7 +2071,9 @@
       "configTitle": "Advertising configuration",
       "configDesc": "This account's Meta credentials. The client sees none of these fields.",
       "conversionsTitle": "Conversions",
-      "conversionsDesc": "The 50 most recent conversions recorded for this account."
+      "conversionsDesc": "The 50 most recent conversions recorded for this account.",
+      "lifecycleTitle": "Account",
+      "lifecycleDesc": "Name, the client's password, and whether the account is in service."
     },
     "setup": {
       "whatsappConnected": "Client connected WhatsApp",
@@ -2112,6 +2117,35 @@
         "expired": "Expired",
         "canceled": "Canceled"
       }
+    },
+    "optionalSection": "Optional details (can be filled in later)",
+    "clinicNamePlaceholder": "Left blank: uses the part of the e-mail before the @",
+    "lifecycle": {
+      "nameLabel": "Account name",
+      "save": "Save",
+      "renamed": "Name updated.",
+      "passwordLabel": "Client's password",
+      "passwordHint": "You choose the password and deliver it through your own channel. It is shown once, here, and never e-mailed.",
+      "passwordPlaceholder": "New password",
+      "reissue": "Reissue",
+      "passwordReissued": "Password reissued. Deliver it to the client.",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "clipboardBlocked": "The browser blocked the clipboard.",
+      "activeTitle": "Account in service",
+      "activeDesc": "The client can sign in normally.",
+      "deactivatedTitle": "Account deactivated",
+      "deactivatedDesc": "Deactivated on {date}. Nothing was deleted — reactivating restores it as it was.",
+      "deactivate": "Deactivate account",
+      "confirmPrompt": "Type \"{name}\" to confirm. The client loses access; nothing is deleted.",
+      "confirmConversions": "{count} conversion(s) waiting to be delivered will be cancelled and do not come back on reactivation.",
+      "confirmDeactivate": "Confirm deactivation",
+      "cancel": "Cancel",
+      "deactivated": "Account deactivated.",
+      "reactivate": "Reactivate account",
+      "reactivated": "Account reactivated.",
+      "failed": "Could not complete.",
+      "networkError": "Network error. Try again."
     }
   }
 }

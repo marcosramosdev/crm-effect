@@ -22,6 +22,7 @@ function row(overrides: Partial<AccountMetaRow> = {}): AccountMetaRow {
     pairedPhone: null,
     pairedAt: null,
     counts: {},
+    deactivatedAt: null,
     ...overrides,
   };
 }

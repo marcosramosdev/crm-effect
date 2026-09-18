@@ -75,13 +75,58 @@ describe("POST /api/admin/provision", () => {
     expect(mocks.provision).not.toHaveBeenCalled();
   });
 
-  it("rejects a submission missing required fields before provisioning", async () => {
+  // tasks.md 1.3 — the address and the password are the only two the
+  // route still refuses to do without.
+  it.each([["clientEmail"], ["clientPassword"]])(
+    "rejects a submission with no %s before provisioning",
+    async (field) => {
+      mocks.getUser.mockResolvedValue({
+        data: { user: { email: "ops@effect.dev" } },
+      });
+      mocks.isPlatformAdmin.mockReturnValue(true);
+
+      const response = await POST(request({ ...VALID_BODY, [field]: "" }));
+
+      expect(response.status).toBe(400);
+      expect(mocks.provision).not.toHaveBeenCalled();
+    },
+  );
+
+  it("provisions from an address and a password alone", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.provision.mockResolvedValue({ email: "cliente1@effect.com" });
+
+    const response = await POST(
+      request({
+        clientEmail: "cliente1@effect.com",
+        clientPassword: "correct-horse",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.provision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientEmail: "cliente1@effect.com",
+        clinicName: undefined,
+        clientFullName: undefined,
+        specialty: undefined,
+        persona: "",
+      }),
+    );
+  });
+
+  it("still refuses a specialty it has no template for", async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
     mocks.isPlatformAdmin.mockReturnValue(true);
 
-    const response = await POST(request({ ...VALID_BODY, clinicName: "" }));
+    const response = await POST(
+      request({ ...VALID_BODY, specialty: "astrologer" }),
+    );
 
     expect(response.status).toBe(400);
     expect(mocks.provision).not.toHaveBeenCalled();

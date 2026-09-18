@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ChevronLeft } from "lucide-react";
 
+import { AccountLifecycle } from "@/components/admin/account-lifecycle";
 import { AccountMetaForm } from "@/components/admin/account-meta-form";
 import { AccountSetupState } from "@/components/admin/account-setup-state";
 import {
@@ -47,7 +48,7 @@ async function loadAccount(accountId: string) {
   const { data: account } = await db
     .from("accounts")
     .select(
-      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph",
+      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
     )
     .eq("id", accountId)
     .maybeSingle();
@@ -100,6 +101,7 @@ async function loadAccount(accountId: string) {
     pairedPhone: (config?.paired_phone as string | null) ?? null,
     pairedAt: (config?.paired_at as string | null) ?? null,
     counts,
+    deactivatedAt: (account.deactivated_at as string | null) ?? null,
   };
 
   const conversions: ConversionRow[] = (events ?? []).map((e) => {
@@ -147,6 +149,25 @@ export default async function AdminAccountPage({
           </Link>
           <h1 className="text-foreground mt-2 text-2xl font-semibold">{row.name}</h1>
         </div>
+
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-foreground">{t("lifecycleTitle")}</CardTitle>
+            <CardDescription>{t("lifecycleDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccountLifecycle
+              accountId={row.id}
+              name={row.name}
+              deactivatedAt={row.deactivatedAt}
+              // What deactivating would cancel — the states no delivery
+              // has been attempted for yet (design.md D4).
+              waitingConversions={
+                (row.counts.pending ?? 0) + (row.counts.unconfigured ?? 0)
+              }
+            />
+          </CardContent>
+        </Card>
 
         <Card className="border-border bg-card">
           <CardHeader>

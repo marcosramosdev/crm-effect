@@ -65,8 +65,16 @@ export async function middleware(request: NextRequest) {
   // they can accept the invitation in one click. Without this,
   // a forwarded invite link to someone who's already signed in
   // would silently drop them on /dashboard.
+  // `/login?suspended=1` is the one sign-in URL a signed-in visitor is
+  // allowed to reach: the dashboard layout sends a member of a
+  // deactivated account here so the page can drop their session and
+  // say why (admin-client-lifecycle design.md D3). Bouncing them to
+  // /dashboard would loop them straight back.
+  const suspended = request.nextUrl.searchParams.get("suspended");
+
   if (
     user &&
+    !(request.nextUrl.pathname === "/login" && suspended) &&
     (request.nextUrl.pathname === "/login" ||
       request.nextUrl.pathname === "/signup" ||
       request.nextUrl.pathname === "/forgot-password")
