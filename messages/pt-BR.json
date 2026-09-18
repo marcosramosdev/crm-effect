@@ -795,7 +795,11 @@
       "confirmArchivePrompt": "Arquivar este negócio?",
       "cancelArchive": "Cancelar",
       "confirmArchive": "Arquivar",
-      "unarchive": "Desarquivar"
+      "unarchive": "Desarquivar",
+      "markConversion": "Reportar como conversão do anúncio",
+      "unmarkConversion": "Não reportar como conversão do anúncio",
+      "markedConversion": "Conversão",
+      "markedConversionTitle": "Marcado para reportar como conversão na plataforma de anúncios"
     },
     "form": {
       "editDeal": "Editar Negócio",

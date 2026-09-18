@@ -352,6 +352,7 @@ export default function PipelinesPage() {
         title?: string;
         value?: number;
         scheduled_at?: string | null;
+        meta_qualified_at?: string | null;
       },
     ): Promise<boolean> => {
       const before = deals.find((d) => d.id === dealId);

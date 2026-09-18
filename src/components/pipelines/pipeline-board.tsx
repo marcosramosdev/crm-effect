@@ -35,6 +35,7 @@ interface PipelineBoardProps {
       title?: string;
       value?: number;
       scheduled_at?: string | null;
+      meta_qualified_at?: string | null;
     },
   ) => Promise<boolean>;
   /** Archive (true) or unarchive (false) a deal — optimistic + revert
@@ -231,6 +232,7 @@ function StageColumn({
       title?: string;
       value?: number;
       scheduled_at?: string | null;
+      meta_qualified_at?: string | null;
     },
   ) => Promise<boolean>;
   onArchiveDeal?: (dealId: string, archived: boolean) => void;
@@ -324,6 +326,7 @@ function DraggableDealCard({
       title?: string;
       value?: number;
       scheduled_at?: string | null;
+      meta_qualified_at?: string | null;
     },
   ) => Promise<boolean>;
   onArchiveDeal?: (dealId: string, archived: boolean) => void;
