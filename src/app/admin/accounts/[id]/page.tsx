@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
+import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
 import {
   type AccountMetaRow,
   type ConnectionState,
@@ -48,7 +49,7 @@ async function loadAccount(accountId: string) {
   const { data: account } = await db
     .from("accounts")
     .select(
-      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
+      "id, name, specialty, specialty_other, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
     )
     .eq("id", accountId)
     .maybeSingle();
@@ -91,6 +92,8 @@ async function loadAccount(accountId: string) {
   const row: AccountMetaRow = {
     id: account.id as string,
     name: account.name as string,
+    specialty: (account.specialty as string | null) ?? null,
+    specialtyOther: (account.specialty_other as string | null) ?? null,
     metaDatasetId: (account.meta_dataset_id as string | null) ?? null,
     hasAccessToken: Boolean(account.meta_access_token),
     metaPageId: (account.meta_page_id as string | null) ?? null,
@@ -135,6 +138,20 @@ export default async function AdminAccountPage({
 
   const { row, conversions, hasAdOriginatedContact } = loaded;
   const t = await getTranslations("AdminConsole.accountPage");
+  const tSpecialties = await getTranslations("AdminConsole.specialties");
+
+  // admin-console spec.md, "The account page states the clinic's
+  // specialty": "other" shows its free text; a recognised key is
+  // translated; an unrecognised key (removed from the list since this
+  // account was provisioned — design.md risk) is shown as itself rather
+  // than disappearing; no value at all reads as explicitly none.
+  const specialtyLabel = !row.specialty
+    ? null
+    : row.specialty === "other"
+      ? (row.specialtyOther ?? "")
+      : SPECIALTY_KEYS.includes(row.specialty as SpecialtyKey)
+        ? tSpecialties(row.specialty as SpecialtyKey)
+        : row.specialty;
 
   return (
     <div className="bg-background flex min-h-screen justify-center px-4 py-10">
@@ -166,6 +183,12 @@ export default async function AdminAccountPage({
                 (row.counts.pending ?? 0) + (row.counts.unconfigured ?? 0)
               }
             />
+            <div className="border-border mt-4 border-t pt-4">
+              <p className="text-muted-foreground text-sm">{t("specialtyTitle")}</p>
+              <p className="text-foreground text-sm">
+                {specialtyLabel ?? t("specialtyNone")}
+              </p>
+            </div>
           </CardContent>
         </Card>
 

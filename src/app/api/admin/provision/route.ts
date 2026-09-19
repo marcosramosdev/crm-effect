@@ -17,7 +17,12 @@ import { createClient } from "@/lib/supabase/server";
 import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/account";
 import { resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 import { validateMetaEventName } from "@/lib/meta/event-name";
-import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
+import {
+  FUNNEL_MODEL_KEYS,
+  SPECIALTY_KEYS,
+  type FunnelModelKey,
+  type SpecialtyKey,
+} from "@/lib/provisioning/templates";
 import { provision, ProvisionError } from "@/lib/provisioning/provision";
 
 interface ProvisionRequestBody {
@@ -26,6 +31,8 @@ interface ProvisionRequestBody {
   clientEmail?: unknown;
   clientPassword?: unknown;
   specialty?: unknown;
+  specialtyOther?: unknown;
+  funnelModel?: unknown;
   persona?: unknown;
   metaDatasetId?: unknown;
   metaAccessToken?: unknown;
@@ -49,16 +56,19 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => null)) as ProvisionRequestBody | null;
 
-    // Only the address and the password are required (provisioning
-    // spec.md, "Address and password alone provision an account").
-    // Everything else resolves to a default inside provision()
-    // (design.md D6), so the route stops rejecting the absent ones.
+    // The clinic name, the full name and the advertising fields resolve
+    // to a default inside provision() (design.md D6), so the route
+    // doesn't reject them when absent. The specialty and the funnel
+    // model are required (provisioning spec.md, "Missing specialty or
+    // funnel model is refused") and have no default.
     const clinicName = requiredString(body?.clinicName) ?? undefined;
     const clientFullName = requiredString(body?.clientFullName) ?? undefined;
     const clientEmail = requiredString(body?.clientEmail);
     const clientPassword =
       typeof body?.clientPassword === "string" ? body.clientPassword : null;
     const specialty = requiredString(body?.specialty);
+    const specialtyOther = requiredString(body?.specialtyOther) ?? undefined;
+    const funnelModel = requiredString(body?.funnelModel);
     const persona = typeof body?.persona === "string" ? body.persona.trim() : "";
     // Optional at provisioning time (provisioning spec.md, "Provisioning
     // without advertising configuration") — an operator fills these in
@@ -87,9 +97,24 @@ export async function POST(request: Request) {
       metaEventName = checked.value;
     }
 
-    // A supplied specialty must still be one we have a template for; an
-    // absent one falls back to DEFAULT_SPECIALTY in provision().
-    if (specialty && !SPECIALTY_KEYS.includes(specialty as SpecialtyKey)) {
+    // Specialty and funnel model are both required and independent —
+    // neither is defaulted, and no combination of the two is refused
+    // (provisioning spec.md, "One submission provisions a complete
+    // account"). "Outros" additionally requires its free text
+    // ("'Outros' requires its text").
+    if (!specialty || !SPECIALTY_KEYS.includes(specialty as SpecialtyKey)) {
+      return NextResponse.json(
+        { error: "Missing or invalid fields" },
+        { status: 400 },
+      );
+    }
+    if (specialty === "other" && !specialtyOther) {
+      return NextResponse.json(
+        { error: "Missing or invalid fields" },
+        { status: 400 },
+      );
+    }
+    if (!funnelModel || !FUNNEL_MODEL_KEYS.includes(funnelModel as FunnelModelKey)) {
       return NextResponse.json(
         { error: "Missing or invalid fields" },
         { status: 400 },
@@ -108,7 +133,9 @@ export async function POST(request: Request) {
       clientFullName,
       clientEmail,
       clientPassword,
-      specialty: (specialty as SpecialtyKey | null) ?? undefined,
+      specialty: specialty as SpecialtyKey,
+      specialtyOther,
+      funnelModel: funnelModel as FunnelModelKey,
       persona,
       metaDatasetId,
       metaAccessToken,

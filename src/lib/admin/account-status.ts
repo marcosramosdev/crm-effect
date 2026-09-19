@@ -30,6 +30,14 @@ export type ConversionCounts = Partial<Record<ConversionStatus, number>>;
 export interface AccountMetaRow {
   id: string;
   name: string;
+  /** The clinic's recorded specialty key, or `null`/absent for an
+   *  account provisioned before this column existed (admin-console
+   *  spec.md, "The account page states the clinic's specialty").
+   *  Describes the clinic and drives nothing. Only the account detail
+   *  page reads this — the account list has no use for it. */
+  specialty?: string | null;
+  /** Free text naming the niche, set only when specialty is "other". */
+  specialtyOther?: string | null;
   metaDatasetId: string | null;
   /** Never the ciphertext — only whether one is stored (provisioning spec.md). */
   hasAccessToken: boolean;
