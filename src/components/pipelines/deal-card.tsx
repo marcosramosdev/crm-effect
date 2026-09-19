@@ -17,7 +17,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { DateTimeFields } from "@/components/ui/date-time-picker";
 import { formatCurrency } from "@/lib/currency";
+import { formatDate } from "@/lib/format";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { fromZonedInputValue, toZonedInputValue } from "@/lib/time/account-tz";
@@ -56,7 +58,7 @@ interface DealCardProps {
 
 /** Render a stored UTC instant as the booked time of day, in `timeZone`. */
 function formatScheduled(iso: string, timeZone: string) {
-  return new Date(iso).toLocaleString("en-US", {
+  return formatDate(iso, undefined, {
     timeZone,
     month: "short",
     day: "numeric",
@@ -405,18 +407,13 @@ export function DealCard({
                   className="w-auto items-start"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <input
-                    type="datetime-local"
-                    autoFocus
+                  <DateTimeFields
                     value={draftScheduled}
                     disabled={savingDate}
-                    onChange={(e) => {
-                      const v = e.target.value;
+                    onChange={(v) => {
                       setDraftScheduled(v);
                       if (v) void commitSchedule(fromZonedInputValue(v, timeZone));
                     }}
-                    aria-label={t("scheduleAria")}
-                    className="border-border bg-background text-foreground focus:border-primary rounded-md border px-2 py-1 text-sm outline-none"
                   />
                   <button
                     type="button"

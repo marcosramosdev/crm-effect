@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Send, Loader2, Users, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { formatNumber } from "@/lib/format";
 
 interface AudienceConfig {
   type: string;
@@ -155,7 +156,7 @@ export function Step4ScheduleSend({
                 <>
                   <Users className="text-primary h-3.5 w-3.5" />
                   <p className="text-foreground font-medium">
-                    {estimatedReach.toLocaleString()}
+                    {formatNumber(estimatedReach)}
                   </p>
                 </>
               )}
@@ -238,7 +239,7 @@ export function Step4ScheduleSend({
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground">
                   {t.rich("scheduleSend.confirmBody", {
-                    count: estimatedReach.toLocaleString(),
+                    count: formatNumber(estimatedReach),
                     strong: (chunks) => (
                       <span className="text-popover-foreground font-medium">
                         {chunks}

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SettingsPanelHead } from "@/components/settings/settings-panel-head";
+import { formatDateTime } from "@/lib/format";
 import type { WhatsAppConnectionState } from "@/types";
 
 /** How often we poll `action=status` while a login attempt is in flight. */
@@ -247,7 +248,7 @@ export function ConnectionManager() {
               ? t("connectedDesc", {
                   phone: pairedPhone,
                   date: pairedAt
-                    ? new Date(pairedAt).toLocaleString()
+                    ? formatDateTime(pairedAt)
                     : t("unknownDate"),
                 })
               : t("notConnectedDesc")}

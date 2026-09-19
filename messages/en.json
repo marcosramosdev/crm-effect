@@ -1266,19 +1266,19 @@
       "tags": {
         "select": "Select a tag…",
         "placeholder": "Tag id",
-        "unknown": "{id} (unknown tag)"
+        "unknown": "Unknown tag"
       },
       "fields": {
         "name": "Name",
         "email": "Email",
         "company": "Company",
         "customFields": "Custom fields",
-        "unknown": "{id} (unknown field)"
+        "unknown": "Unknown field"
       },
       "agents": {
         "select": "Select an agent…",
         "placeholder": "Agent id",
-        "unknown": "{id} (unknown agent)"
+        "unknown": "Unknown agent"
       },
       "pipelines": {
         "pipelineLabel": "Pipeline",
@@ -1288,8 +1288,8 @@
         "selectPipeline": "Select a pipeline…",
         "selectStage": "Select a stage…",
         "selectPipelineFirst": "Select a pipeline first…",
-        "unknownPipeline": "{id} (unknown pipeline)",
-        "unknownStage": "{id} (unknown stage)"
+        "unknownPipeline": "Unknown pipeline",
+        "unknownStage": "Unknown stage"
       },
       "branches": {
         "yes": "Yes",
@@ -2189,5 +2189,14 @@
     "removed": "Operator removed.",
     "failed": "Could not complete.",
     "networkError": "Network error. Try again."
+  },
+  "DateTimePicker": {
+    "pickDate": "Pick a date",
+    "hour": "Hour",
+    "minute": "Minute",
+    "clear": "Clear"
+  },
+  "Common": {
+    "unnamedMember": "Unnamed member"
   }
 }

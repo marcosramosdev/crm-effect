@@ -59,6 +59,7 @@ import { CustomFieldsManager } from "@/components/contacts/custom-fields-manager
 import { useCan } from "@/hooks/use-can";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { formatDate } from "@/lib/format";
 
 const PAGE_SIZE = 25;
 
@@ -683,7 +684,7 @@ export default function ContactsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString("en-US", {
+                    {formatDate(contact.created_at, undefined, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",

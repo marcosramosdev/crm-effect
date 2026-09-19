@@ -10,8 +10,14 @@
  * nothing is known.
  */
 
-/** App-wide fallback when no account/deal currency is available. */
-export const DEFAULT_CURRENCY = "USD";
+import { APP_LOCALE } from "@/lib/format";
+
+/**
+ * App-wide fallback when no account/deal currency is available, and the
+ * default a new account is born with (see migration 053 — existing
+ * accounts keep whatever currency they already hold).
+ */
+export const DEFAULT_CURRENCY = "BRL";
 
 export interface CurrencyOption {
   /** ISO-4217 code, e.g. "USD". Stored verbatim in the DB. */
@@ -65,7 +71,7 @@ export function formatCurrency(
   const code = (currency || DEFAULT_CURRENCY).trim();
   const amount = Number(value) || 0;
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(APP_LOCALE, {
       style: "currency",
       currency: code,
       minimumFractionDigits: 0,
@@ -74,7 +80,7 @@ export function formatCurrency(
   } catch {
     // Invalid ISO code — show the raw code + grouped number so the
     // value is still legible instead of throwing.
-    return `${code} ${new Intl.NumberFormat(undefined, {
+    return `${code} ${new Intl.NumberFormat(APP_LOCALE, {
       maximumFractionDigits: 0,
     }).format(amount)}`;
   }

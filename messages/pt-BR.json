@@ -1266,19 +1266,19 @@
       "tags": {
         "select": "Selecione uma tag…",
         "placeholder": "Id da tag",
-        "unknown": "{id} (tag desconhecida)"
+        "unknown": "Tag desconhecida"
       },
       "fields": {
         "name": "Nome",
         "email": "E-mail",
         "company": "Empresa",
         "customFields": "Campos personalizados",
-        "unknown": "{id} (campo desconhecido)"
+        "unknown": "Campo desconhecido"
       },
       "agents": {
         "select": "Selecione um agente…",
         "placeholder": "Id do agente",
-        "unknown": "{id} (agente desconhecido)"
+        "unknown": "Agente desconhecido"
       },
       "pipelines": {
         "pipelineLabel": "Funil",
@@ -1288,8 +1288,8 @@
         "selectPipeline": "Selecione um funil…",
         "selectStage": "Selecione uma etapa…",
         "selectPipelineFirst": "Selecione um funil primeiro…",
-        "unknownPipeline": "{id} (funil desconhecido)",
-        "unknownStage": "{id} (etapa desconhecida)"
+        "unknownPipeline": "Funil desconhecido",
+        "unknownStage": "Etapa desconhecida"
       },
       "branches": {
         "yes": "Sim",
@@ -2189,5 +2189,14 @@
     "removed": "Operador removido.",
     "failed": "Não foi possível concluir.",
     "networkError": "Falha de rede. Tente de novo."
+  },
+  "DateTimePicker": {
+    "pickDate": "Selecionar data",
+    "hour": "Hora",
+    "minute": "Minuto",
+    "clear": "Limpar"
+  },
+  "Common": {
+    "unnamedMember": "Membro sem nome"
   }
 }

@@ -17,6 +17,7 @@ import {
   visibleConversionCounts,
   type AccountMetaRow,
 } from "@/lib/admin/account-status";
+import { formatDateTime } from "@/lib/format";
 
 // One row per account: the messaging connection, the advertising
 // state, the conversion counts. Everything an operator needs to answer
@@ -102,7 +103,7 @@ function AccountRow({ account }: { account: AccountMetaRow }) {
           {account.deactivatedAt && (
             <span>
               {t("deactivatedOn", {
-                date: new Date(account.deactivatedAt).toLocaleString(),
+                date: formatDateTime(account.deactivatedAt),
               })}
             </span>
           )}
@@ -110,7 +111,7 @@ function AccountRow({ account }: { account: AccountMetaRow }) {
             <span>
               {t("pairedAs", { phone: account.pairedPhone })}
               {account.pairedAt
-                ? ` · ${new Date(account.pairedAt).toLocaleString()}`
+                ? ` · ${formatDateTime(account.pairedAt)}`
                 : ""}
             </span>
           )}

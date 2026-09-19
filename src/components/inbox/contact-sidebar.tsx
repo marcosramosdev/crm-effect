@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
 import { moveDealStage, moveDealToPipeline } from "@/lib/inbox/deals";
 import { DealStagePicker } from "./deal-stage-picker";
@@ -495,10 +496,7 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
                       </button>
                     </div>
                     <div className="text-muted-foreground mt-1 flex items-center justify-between gap-2 text-xs">
-                      <span>
-                        {deal.currency ?? "$"}
-                        {deal.value.toLocaleString()}
-                      </span>
+                      <span>{formatCurrency(deal.value, deal.currency)}</span>
                       <DealStagePicker
                         dealId={deal.id}
                         pipelineId={deal.pipeline_id}

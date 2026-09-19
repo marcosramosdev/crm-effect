@@ -7,6 +7,7 @@ import { addContactTag, deleteContactTag } from "@/lib/contacts/tag-api";
 import { useAuth } from "@/hooks/use-auth";
 import { useCan } from "@/hooks/use-can";
 import { formatCurrency } from "@/lib/currency";
+import { formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import type {
   Contact,
@@ -649,16 +650,13 @@ export function ContactDetailView({
                             </button>
                           </div>
                           <p className="text-muted-foreground mt-1.5 text-xs">
-                            {new Date(note.created_at).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )}
+                            {formatDate(note.created_at, undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </p>
                         </div>
                       ))
