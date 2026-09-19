@@ -104,7 +104,7 @@ export function normalizeConnectionState(raw: unknown): ConnectionState {
 }
 
 /** Stable, human-recognisable instance name — shows up in UAZAPI's own instance list. */
-function instanceName(accountId: string): string {
+export function instanceName(accountId: string): string {
   return `wacrm-${accountId}`;
 }
 
@@ -553,6 +553,11 @@ export async function readInstanceStatus(
 // 3.4 — Disconnect
 // ============================================================
 
+export interface TeardownResult {
+  /** The instance left running on the gateway, when the delete did not land. */
+  orphan: { instanceId: string; name: string } | null;
+}
+
 /**
  * Delete the account's WhatsApp instance on the gateway and clear the
  * stored instance credentials, returning the account to the same
@@ -568,27 +573,39 @@ export async function readInstanceStatus(
  * `instance_id` / `instance_token` — is always cleared regardless of
  * what the gateway reports, since "no longer paired" is already true
  * locally the moment the operator asks for it. A gateway failure — a
- * rejected/stale instance token or a network failure — is caught and
- * logged, never thrown, matching {@link ensureWebhookRegistered}'s
- * non-fatal-failure pattern; a 404 for an instance that is already
- * gone is the goal state and is not logged.
+ * rejected/stale instance token or a network failure — is caught,
+ * logged and reported back as an `orphan` rather than thrown, matching
+ * {@link ensureWebhookRegistered}'s non-fatal-failure pattern; a 404
+ * for an instance that is already gone is the goal state and is
+ * neither logged nor reported.
+ *
+ * An account with no provisioned instance is a no-op: `{ orphan: null }`
+ * with no gateway call, so a double-disconnect (or an operator
+ * deactivating an account that never connected) is idempotent rather
+ * than a throw (design.md D1).
  */
 export async function disconnectInstance(
   db: SupabaseClient,
   accountId: string,
-): Promise<void> {
-  const { row, token } = await requireInstance(db, accountId);
+): Promise<TeardownResult> {
+  const row = await loadConfigRow(db, accountId);
+  if (!row || !row.instance_id || !row.instance_token) {
+    return { orphan: null };
+  }
 
+  const token = decrypt(row.instance_token);
+  let orphan: TeardownResult["orphan"] = null;
   try {
     await uazapiFetch({ path: "/instance", method: "DELETE", token });
   } catch (err) {
     // A 404 means the instance is already gone — that is the outcome
-    // we want, not a failure worth logging.
+    // we want, not a failure worth logging or reporting.
     if (!(err instanceof UazapiError) || err.status !== 404) {
       console.warn(
         "[whatsapp/instance] gateway instance delete failed during disconnect (non-fatal):",
         err instanceof Error ? err.message : err,
       );
+      orphan = { instanceId: row.instance_id, name: instanceName(accountId) };
     }
   }
 
@@ -611,6 +628,8 @@ export async function disconnectInstance(
       500,
     );
   }
+
+  return { orphan };
 }
 
 export { UazapiError };

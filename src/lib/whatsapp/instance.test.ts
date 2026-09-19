@@ -343,7 +343,8 @@ describe("disconnectInstance", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { db, getRow } = pairedDb();
 
-    await disconnectInstance(db, "acc-1");
+    const result = await disconnectInstance(db, "acc-1");
+    expect(result).toEqual({ orphan: null });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://gateway.example.com/instance");
@@ -361,55 +362,73 @@ describe("disconnectInstance", () => {
     expect(row?.instance_token).toBeNull();
   });
 
-  const gatewayFailures: Array<[string, () => void]> = [
-    [
-      "rejects the stored token (401)",
-      () =>
-        vi.stubGlobal(
-          "fetch",
-          vi
-            .fn()
-            .mockResolvedValue(jsonResponse(401, { error: "Invalid token" })),
-        ),
-    ],
-    [
-      "reports the instance already gone (404)",
-      () =>
-        vi.stubGlobal(
-          "fetch",
-          vi
-            .fn()
-            .mockResolvedValue(
-              jsonResponse(404, { error: "Instância não encontrada" }),
-            ),
-        ),
-    ],
-    [
-      "is unreachable (network error)",
-      () =>
-        vi.stubGlobal(
-          "fetch",
-          vi.fn().mockRejectedValue(new Error("network down")),
-        ),
-    ],
-  ];
+  it("resolves with no orphan and makes no gateway call when there is no instance to release", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { db } = makeDb(null);
 
-  it.each(gatewayFailures)(
-    "still resolves and clears state + instance credentials when the gateway %s",
-    async (_label, stubFetch) => {
-      stubFetch();
-      const { db, getRow } = pairedDb();
+    await expect(disconnectInstance(db, "acc-1")).resolves.toEqual({
+      orphan: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
-      await expect(disconnectInstance(db, "acc-1")).resolves.toBeUndefined();
+  it("reports an orphan and still clears state + instance credentials when the gateway rejects the delete (401)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(401, { error: "Invalid token" })),
+    );
+    const { db, getRow } = pairedDb();
 
-      const row = getRow();
-      expect(row?.connection_state).toBe("disconnected");
-      expect(row?.paired_phone).toBeNull();
-      expect(row?.paired_at).toBeNull();
-      expect(row?.instance_id).toBeNull();
-      expect(row?.instance_token).toBeNull();
-    },
-  );
+    await expect(disconnectInstance(db, "acc-1")).resolves.toEqual({
+      orphan: { instanceId: "inst-1", name: "wacrm-acc-1" },
+    });
+
+    const row = getRow();
+    expect(row?.connection_state).toBe("disconnected");
+    expect(row?.paired_phone).toBeNull();
+    expect(row?.paired_at).toBeNull();
+    expect(row?.instance_id).toBeNull();
+    expect(row?.instance_token).toBeNull();
+  });
+
+  it("reports an orphan and still clears state + instance credentials when the gateway is unreachable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down")),
+    );
+    const { db, getRow } = pairedDb();
+
+    await expect(disconnectInstance(db, "acc-1")).resolves.toEqual({
+      orphan: { instanceId: "inst-1", name: "wacrm-acc-1" },
+    });
+
+    const row = getRow();
+    expect(row?.connection_state).toBe("disconnected");
+    expect(row?.instance_id).toBeNull();
+    expect(row?.instance_token).toBeNull();
+  });
+
+  it("resolves with no orphan when the gateway reports the instance already gone (404)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(404, { error: "Instância não encontrada" }),
+        ),
+    );
+    const { db, getRow } = pairedDb();
+
+    await expect(disconnectInstance(db, "acc-1")).resolves.toEqual({
+      orphan: null,
+    });
+
+    const row = getRow();
+    expect(row?.connection_state).toBe("disconnected");
+    expect(row?.instance_id).toBeNull();
+    expect(row?.instance_token).toBeNull();
+  });
 
   it("leaves the account unconfigured, so the next provision creates a fresh instance", async () => {
     const fetchMock = vi.fn(async (url: string) => {
