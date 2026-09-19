@@ -29,11 +29,34 @@ reports nothing.
 _Avoid_: Won, closed, converted
 
 **Conversion mark**:
-An operator's explicit decision, taken on the Deal's board card, that this lead
-is worth reporting to Meta (`deals.meta_qualified_at`). Independent of the
-Deal's status: a qualified Deal can be unmarked and a lost one marked. Setting
-it records a Conversion, clearing it cancels one that has not been sent.
-_Avoid_: Qualified, won, conversion flag
+A clinic team member's explicit decision, taken on the Deal's board card, that
+this lead is worth reporting to Meta (`deals.meta_qualified_at`). Independent
+of the Deal's status: a qualified Deal can be unmarked and a lost one marked.
+Setting it records a Conversion, clearing it cancels one that has not been
+sent.
+_Avoid_: Qualified, won, conversion flag, operator (that word now means a
+Platform operator — an entirely different person)
+
+**Platform operator**:
+Effect's own staff, not a clinic's user. Owns the product; the people inside
+Accounts are its customers. Member of no Account — no client surface ever
+renders for them, and signing in leads to `/admin`, never `/dashboard`. Holds
+one of two roles, Manager or Admin operator.
+_Avoid_: Admin, operator (bare — always say which kind)
+
+**Manager**:
+The Platform operator role that registers and removes other operators. The
+only role that can. Everything else it can do, an Admin operator can too.
+_Avoid_: Owner, superadmin
+
+**Admin operator**:
+The Platform operator role that does everything concerning client Accounts —
+provision, rename, reissue a password, deactivate, reactivate, edit the
+advertising configuration — across every Account, not scoped to the ones it
+created. Cannot register or remove operators.
+_Avoid_: Admin alone where a client Account's own `admin` role
+(`account_role_enum`) is meant — the two are unrelated vocabularies that
+happen to share a word
 
 ### Ad attribution
 

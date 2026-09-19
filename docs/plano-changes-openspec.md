@@ -23,19 +23,19 @@ revista.
 A seta significa dependência real: a change de baixo precisa da de cima já no
 `main`.
 
-| # | Change | Branch | Depende de |
-|---|---|---|---|
-| 1 | `platform-admin-profiles` | `feat/platform-admin-profiles` | — |
-| 2 | `account-teardown-uazapi` | `feat/account-teardown-uazapi` | — |
-| 3 | `health-specialties-and-funnel-templates` | `feat/specialties-and-funnels` | — |
-| 4 | `brazilian-formatting` | `feat/brazilian-formatting` | — |
-| 5 | `contact-always-lands-in-contato` | `feat/contact-always-lands-in-contato` | 3 |
-| 6 | `followup-single-placeholder` | `fix/followup-single-placeholder` | — |
-| 7 | `account-pendings-panel` | `feat/account-pendings-panel` | 6 |
-| 8 | `ai-conversation-controls` | `feat/ai-conversation-controls` | 7 |
-| 9 | `ai-agent-prompt-builder` | `feat/ai-agent-prompt-builder` | 3, 8 |
-| 10 | `lost-deal-stops-meta-conversion` | `feat/lost-deal-stops-meta-conversion` | — |
-| 11 | `demo-account-seed` | `feat/demo-account-seed` | 3, 5, 6 |
+| #   | Change                                    | Branch                                 | Depende de |
+| --- | ----------------------------------------- | -------------------------------------- | ---------- |
+| 1   | `platform-admin-profiles`                 | `feat/platform-admin-profiles`         | —          |
+| 2   | `account-teardown-uazapi`                 | `feat/account-teardown-uazapi`         | —          |
+| 3   | `health-specialties-and-funnel-templates` | `feat/specialties-and-funnels`         | —          |
+| 4   | `brazilian-formatting`                    | `feat/brazilian-formatting`            | —          |
+| 5   | `contact-always-lands-in-contato`         | `feat/contact-always-lands-in-contato` | 3          |
+| 6   | `followup-single-placeholder`             | `fix/followup-single-placeholder`      | —          |
+| 7   | `account-pendings-panel`                  | `feat/account-pendings-panel`          | 6          |
+| 8   | `ai-conversation-controls`                | `feat/ai-conversation-controls`        | 7          |
+| 9   | `ai-agent-prompt-builder`                 | `feat/ai-agent-prompt-builder`         | 3, 8       |
+| 10  | `lost-deal-stops-meta-conversion`         | `feat/lost-deal-stops-meta-conversion` | —          |
+| 11  | `demo-account-seed`                       | `feat/demo-account-seed`               | 3, 5, 6    |
 
 As changes 1, 2, 3, 4, 6 e 10 não dependem de nada e podem correr em paralelo.
 A 11 é a última porque semeia exatamente o que as outras definem.

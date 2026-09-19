@@ -2146,6 +2146,46 @@
       "reactivated": "Conta reativada.",
       "failed": "Não foi possível concluir.",
       "networkError": "Falha de rede. Tente de novo."
+    },
+    "chrome": {
+      "title": "Painel Effect",
+      "operatorsLink": "Operadores",
+      "signOut": "Sair"
     }
+  },
+  "AdminOperators": {
+    "back": "Voltar",
+    "title": "Operadores",
+    "desc": "Quem pode entrar no painel — e com qual papel.",
+    "registerTitle": "Cadastrar operador",
+    "registerDesc": "Você escolhe a senha e entrega ao operador pelo seu próprio canal. Ela é mostrada uma vez, aqui, e nunca é enviada por e-mail.",
+    "nameLabel": "Nome",
+    "emailLabel": "E-mail",
+    "roleLabel": "Papel",
+    "roleAdmin": "Admin",
+    "roleManager": "Gerente",
+    "passwordLabel": "Senha",
+    "passwordPlaceholder": "Senha do operador",
+    "passwordHint": "Necessária só quando o e-mail ainda não tem login.",
+    "submit": "Cadastrar",
+    "registered": "Operador cadastrado.",
+    "adopted": "E-mail já tinha login — vinculado como operador, senha mantida.",
+    "issuedFor": "Senha de {email}, mostrada uma vez:",
+    "adoptedFor": "{email} já tinha login. Nada mudou na senha.",
+    "copy": "Copiar",
+    "copied": "Copiado.",
+    "clipboardBlocked": "O navegador bloqueou a área de transferência.",
+    "listTitle": "Operadores cadastrados",
+    "seededBadge": "Semente (env)",
+    "seededHint": "Vem de PLATFORM_ADMINS — não pode ser removido por aqui.",
+    "registeredBy": "Cadastrado por {name} em {date}",
+    "unknownRegistrar": "operador removido",
+    "remove": "Remover",
+    "confirmRemove": "Remover este operador? A pessoa perde acesso ao painel; o login dela continua existindo.",
+    "confirmRemoveButton": "Confirmar remoção",
+    "cancel": "Cancelar",
+    "removed": "Operador removido.",
+    "failed": "Não foi possível concluir.",
+    "networkError": "Falha de rede. Tente de novo."
   }
 }

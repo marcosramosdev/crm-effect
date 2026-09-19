@@ -2146,6 +2146,46 @@
       "reactivated": "Account reactivated.",
       "failed": "Could not complete.",
       "networkError": "Network error. Try again."
+    },
+    "chrome": {
+      "title": "Effect Console",
+      "operatorsLink": "Operators",
+      "signOut": "Sign out"
     }
+  },
+  "AdminOperators": {
+    "back": "Back",
+    "title": "Operators",
+    "desc": "Who can reach the console — and with which role.",
+    "registerTitle": "Register an operator",
+    "registerDesc": "You choose the password and deliver it to the operator through your own channel. It's shown once, here, and never e-mailed.",
+    "nameLabel": "Name",
+    "emailLabel": "E-mail",
+    "roleLabel": "Role",
+    "roleAdmin": "Admin",
+    "roleManager": "Manager",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Operator's password",
+    "passwordHint": "Only needed when the address has no sign-in yet.",
+    "submit": "Register",
+    "registered": "Operator registered.",
+    "adopted": "Address already had a sign-in — attached as an operator, password unchanged.",
+    "issuedFor": "Password for {email}, shown once:",
+    "adoptedFor": "{email} already had a sign-in. Nothing changed about the password.",
+    "copy": "Copy",
+    "copied": "Copied.",
+    "clipboardBlocked": "The browser blocked the clipboard.",
+    "listTitle": "Registered operators",
+    "seededBadge": "Seeded (env)",
+    "seededHint": "Comes from PLATFORM_ADMINS — cannot be removed here.",
+    "registeredBy": "Registered by {name} on {date}",
+    "unknownRegistrar": "removed operator",
+    "remove": "Remove",
+    "confirmRemove": "Remove this operator? They lose access to the console; their sign-in still exists.",
+    "confirmRemoveButton": "Confirm removal",
+    "cancel": "Cancel",
+    "removed": "Operator removed.",
+    "failed": "Could not complete.",
+    "networkError": "Network error. Try again."
   }
 }

@@ -8,12 +8,16 @@ import { NextRequest } from "next/server";
 //                      i.e. the freshly *rotated* auth token. The whole point
 //                      of the test is that these must survive onto whatever
 //                      response the middleware returns — including redirects.
-let mockUser: { id: string } | null = null;
+let mockUser: { id: string; email?: string } | null = null;
 let refreshedCookies: Array<{
   name: string;
   value: string;
   options: Record<string, unknown>;
 }> = [];
+// Simulates the caller's own platform_operators row — null when they
+// have none (the only query resolvePlatformOperator ever runs, once
+// the env seed doesn't already match).
+let mockOperatorRow: { role: string } | null = null;
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (
@@ -32,6 +36,13 @@ vi.mock("@supabase/ssr", () => ({
         return { data: { user: mockUser } };
       },
     },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: mockOperatorRow, error: null }),
+        }),
+      }),
+    }),
   }),
 }));
 
@@ -43,9 +54,13 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   mockUser = null;
   refreshedCookies = [];
+  mockOperatorRow = null;
 });
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  delete process.env.PLATFORM_ADMINS;
+});
 
 const ROTATED = {
   name: "sb-test-auth-token",
@@ -103,5 +118,82 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
     // No redirect — the normal NextResponse.next() already carries cookies.
     expect(res.headers.get("location")).toBeNull();
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+  });
+});
+
+// platform-admin-profiles tasks.md 5.1/5.2 — an operator's sign-in
+// landings and /admin* itself route on the resolver, not on any
+// client-account role.
+describe("middleware — platform operator routing", () => {
+  it("sends a seeded operator from / to /admin instead of /dashboard", async () => {
+    process.env.PLATFORM_ADMINS = "ops@effect.dev";
+    mockUser = { id: "op-1", email: "ops@effect.dev" };
+
+    const res = await middleware(new NextRequest("https://app.test/"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/admin");
+  });
+
+  it("still sends an ordinary client from / to /dashboard", async () => {
+    mockUser = { id: "user-1", email: "client@effect.dev" };
+    mockOperatorRow = null;
+
+    const res = await middleware(new NextRequest("https://app.test/"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
+  });
+
+  it("sends a signed-in operator from /login to /admin", async () => {
+    mockUser = { id: "op-1", email: "ops@effect.dev" };
+    mockOperatorRow = { role: "admin" };
+
+    const res = await middleware(new NextRequest("https://app.test/login"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/admin");
+  });
+
+  it("lets a recorded admin-role operator reach /admin", async () => {
+    mockUser = { id: "op-1", email: "admin@effect.dev" };
+    mockOperatorRow = { role: "admin" };
+
+    const res = await middleware(new NextRequest("https://app.test/admin"));
+
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("bounces a non-operator away from /admin to /dashboard", async () => {
+    mockUser = { id: "user-1", email: "client@effect.dev" };
+    mockOperatorRow = null;
+
+    const res = await middleware(new NextRequest("https://app.test/admin"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
+  });
+
+  it("bounces an admin-role operator from /admin/operators to /admin", async () => {
+    mockUser = { id: "op-1", email: "admin@effect.dev" };
+    mockOperatorRow = { role: "admin" };
+
+    const res = await middleware(new NextRequest("https://app.test/admin/operators"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/admin");
+  });
+
+  it("lets a manager reach /admin/operators", async () => {
+    mockUser = { id: "mgr-1", email: "mgr@effect.dev" };
+    mockOperatorRow = { role: "manager" };
+
+    const res = await middleware(new NextRequest("https://app.test/admin/operators"));
+
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("bounces a non-operator away from /admin/operators to /dashboard", async () => {
+    mockUser = { id: "user-1", email: "client@effect.dev" };
+    mockOperatorRow = null;
+
+    const res = await middleware(new NextRequest("https://app.test/admin/operators"));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
   });
 });

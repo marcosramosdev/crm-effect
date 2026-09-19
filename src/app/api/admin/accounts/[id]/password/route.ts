@@ -20,7 +20,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/account";
-import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
+import { resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
 
 /** Supabase is the real authority and refuses a short password itself;
@@ -44,7 +44,8 @@ export async function POST(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new UnauthorizedError();
-    if (!isPlatformAdmin(user.email)) throw new ForbiddenError();
+    const operator = await resolvePlatformOperator(supabase, user);
+    if (!operator) throw new ForbiddenError();
 
     const body = (await request.json().catch(() => null)) as PasswordBody | null;
     const password = typeof body?.password === "string" ? body.password : "";

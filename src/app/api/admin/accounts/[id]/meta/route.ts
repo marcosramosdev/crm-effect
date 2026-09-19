@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/account";
-import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
+import { resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
 import { encrypt } from "@/lib/whatsapp/encryption";
 import { validateMetaEventName } from "@/lib/meta/event-name";
@@ -57,7 +57,8 @@ export async function PATCH(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new UnauthorizedError();
-    if (!isPlatformAdmin(user.email)) throw new ForbiddenError();
+    const operator = await resolvePlatformOperator(supabase, user);
+    if (!operator) throw new ForbiddenError();
 
     const body = (await request.json().catch(() => null)) as MetaPatchBody | null;
     if (!body || typeof body !== "object") {
