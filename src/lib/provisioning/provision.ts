@@ -1,5 +1,7 @@
 /**
- * The provisioning orchestrator (client-provisioning design.md D1/D2).
+ * The provisioning orchestrator (client-provisioning design.md D1/D2;
+ * specialty/funnel split in health-specialties-and-funnel-templates
+ * design.md D1).
  *
  * `auth.admin.createUser` fires the existing `handle_new_user` trigger
  * (migration 017), which creates the `accounts` row and the owner
@@ -12,8 +14,8 @@
  *   1. auth.admin.createUser (confirmed)
  *   2. read profiles back — fail if the trigger's bootstrap didn't
  *      land (it swallows its own failures as a WARNING)
- *   3. update accounts (name, Meta credentials)
- *   4. seed pipeline + stages from the specialty template
+ *   3. update accounts (name, specialty, Meta credentials)
+ *   4. seed pipeline + stages from the chosen funnel model
  *   5. insert ai_configs (persona, auto-reply off, drafts on)
  *   6. provisionInstance() — the UAZAPI call
  *   7. point whatsapp_config's inbound defaults at the seeded pipeline
@@ -27,18 +29,30 @@
 import { provisionInstance } from "@/lib/whatsapp/instance";
 import { encrypt } from "@/lib/whatsapp/encryption";
 import { supabaseAdmin } from "./admin-client";
-import { SPECIALTY_TEMPLATES, type SpecialtyKey } from "./templates";
+import {
+  FUNNEL_MODELS,
+  PIPELINE_NAME,
+  type FunnelModelKey,
+  type SpecialtyKey,
+} from "./templates";
 
 export interface ProvisionInput {
   clientEmail: string;
   clientPassword: string;
+  /** Required — no default (provisioning spec.md, "Missing specialty or
+   *  funnel model is refused"). Decides nothing else; it's recorded on
+   *  the account and read back by an operator. */
+  specialty: SpecialtyKey;
+  /** Required only when specialty is "other" (provisioning spec.md,
+   *  "'Outros' requires its text"); ignored and dropped otherwise. */
+  specialtyOther?: string;
+  /** Required — no default. Selects the pipeline's stages. */
+  funnelModel: FunnelModelKey;
   /** Falls back to the e-mail's local part (design.md D6). */
   clinicName?: string;
   /** Falls back to the resolved account name — it only feeds
    *  `user_metadata.full_name`. */
   clientFullName?: string;
-  /** Defaults to DEFAULT_SPECIALTY. */
-  specialty?: SpecialtyKey;
   /** Defaults to an empty persona, which `ai_configs` accepts. */
   persona?: string;
   /** Optional at provisioning time — an account with no dataset simply
@@ -51,10 +65,6 @@ export interface ProvisionInput {
   /** Falls back to the column default when absent. */
   metaEventName?: string;
 }
-
-/** Used when the operator picks no specialty (provisioning spec.md,
- *  "Unchosen specialty falls back"). */
-export const DEFAULT_SPECIALTY: SpecialtyKey = "dentist";
 
 /**
  * `cliente1@effect.com` -> `cliente1`.
@@ -69,11 +79,16 @@ export function accountNameFromEmail(email: string): string {
 }
 
 /** The one place the optional inputs of design.md D6 become concrete, so a
- *  second caller — a seeding script, a test — gets the same defaults. */
+ *  second caller — a seeding script, a test — gets the same defaults.
+ *  specialty and funnelModel are required inputs, not resolved here —
+ *  see ProvisionInput. specialtyOther is normalised to undefined unless
+ *  specialty is "other" (design.md D5). */
 export function resolveProvisionInput(input: ProvisionInput): {
   clinicName: string;
   clientFullName: string;
   specialty: SpecialtyKey;
+  specialtyOther: string | undefined;
+  funnelModel: FunnelModelKey;
   persona: string;
 } {
   const clinicName =
@@ -81,7 +96,10 @@ export function resolveProvisionInput(input: ProvisionInput): {
   return {
     clinicName,
     clientFullName: input.clientFullName?.trim() || clinicName,
-    specialty: input.specialty ?? DEFAULT_SPECIALTY,
+    specialty: input.specialty,
+    specialtyOther:
+      input.specialty === "other" ? input.specialtyOther?.trim() || undefined : undefined,
+    funnelModel: input.funnelModel,
     persona: input.persona ?? "",
   };
 }
@@ -156,7 +174,7 @@ export async function provision(
   input: ProvisionInput,
 ): Promise<{ email: string }> {
   const db = supabaseAdmin();
-  const { clinicName, clientFullName, specialty, persona } =
+  const { clinicName, clientFullName, specialty, specialtyOther, funnelModel, persona } =
     resolveProvisionInput(input);
 
   let authUserId: string | undefined;
@@ -193,7 +211,11 @@ export async function provision(
     });
 
     await runStep("update_account", async () => {
-      const patch: Record<string, unknown> = { name: clinicName };
+      const patch: Record<string, unknown> = {
+        name: clinicName,
+        specialty,
+        specialty_other: specialtyOther ?? null,
+      };
       if (input.metaDatasetId) patch.meta_dataset_id = input.metaDatasetId;
       if (input.metaAccessToken) {
         patch.meta_access_token = encrypt(input.metaAccessToken);
@@ -214,7 +236,7 @@ export async function provision(
           .insert({
             account_id: accountId,
             user_id: authUserId,
-            name: clinicName,
+            name: PIPELINE_NAME,
           })
           .select("id")
           .single();
@@ -224,7 +246,7 @@ export async function provision(
           );
         }
 
-        const stages = SPECIALTY_TEMPLATES[specialty];
+        const stages = FUNNEL_MODELS[funnelModel];
         const { data: inserted, error: stagesErr } = await db
           .from("pipeline_stages")
           .insert(

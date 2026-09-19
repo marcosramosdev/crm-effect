@@ -23,7 +23,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SPECIALTY_KEYS, type SpecialtyKey } from "@/lib/provisioning/templates";
+import {
+  FUNNEL_MODEL_KEYS,
+  FUNNEL_MODELS,
+  SPECIALTY_KEYS,
+  type FunnelModelKey,
+  type SpecialtyKey,
+} from "@/lib/provisioning/templates";
 import { DEFAULT_META_EVENT_NAME } from "@/lib/meta/event-name";
 
 interface FormState {
@@ -31,7 +37,9 @@ interface FormState {
   clientFullName: string;
   clientEmail: string;
   clientPassword: string;
-  specialty: SpecialtyKey;
+  specialty: SpecialtyKey | "";
+  specialtyOther: string;
+  funnelModel: FunnelModelKey | "";
   persona: string;
   metaDatasetId: string;
   metaAccessToken: string;
@@ -44,7 +52,13 @@ const EMPTY_FORM: FormState = {
   clientFullName: "",
   clientEmail: "",
   clientPassword: "",
-  specialty: "dentist",
+  // No default — specialty and funnel model are both required and
+  // independent, so the operator must choose each explicitly
+  // (provisioning spec.md, "Missing specialty or funnel model is
+  // refused").
+  specialty: "",
+  specialtyOther: "",
+  funnelModel: "",
   persona: "",
   metaDatasetId: "",
   metaAccessToken: "",
@@ -204,7 +218,16 @@ export function ProvisioningForm() {
           <Field label={t("specialty")}>
             <Select
               value={form.specialty}
-              onValueChange={(v) => set("specialty", v as SpecialtyKey)}
+              onValueChange={(v) =>
+                setForm((prev) => ({
+                  ...prev,
+                  specialty: v as SpecialtyKey,
+                  // Free text is dropped the moment a listed specialty
+                  // is picked (provisioning spec.md, "Free text is
+                  // dropped for a listed specialty").
+                  specialtyOther: v === "other" ? prev.specialtyOther : "",
+                }))
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -213,6 +236,40 @@ export function ProvisioningForm() {
                 {SPECIALTY_KEYS.map((key) => (
                   <SelectItem key={key} value={key}>
                     {t(`specialties.${key}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {form.specialty === "other" && (
+            <Field label={t("specialtyOther")}>
+              <Input
+                value={form.specialtyOther}
+                onChange={(e) => set("specialtyOther", e.target.value)}
+                placeholder={t("specialtyOtherPlaceholder")}
+                required
+              />
+            </Field>
+          )}
+
+          <Field label={t("funnelModel")}>
+            <Select
+              value={form.funnelModel}
+              onValueChange={(v) => set("funnelModel", v as FunnelModelKey)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FUNNEL_MODEL_KEYS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex flex-col">
+                      <span>{t(`funnelModels.${key}`)}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {FUNNEL_MODELS[key].map((s) => s.name).join(" › ")}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

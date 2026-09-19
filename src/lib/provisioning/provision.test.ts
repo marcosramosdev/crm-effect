@@ -134,6 +134,7 @@ const INPUT = {
   clientEmail: "jane@example.com",
   clientPassword: "correct-horse",
   specialty: "dentist" as const,
+  funnelModel: "model-1" as const,
   persona: "Friendly dental assistant",
   metaDatasetId: "dataset-1",
   metaAccessToken: "token-1",
@@ -240,6 +241,8 @@ describe("provision", () => {
       await provision(INPUT);
       expect(lastAccountsUpdate).toEqual({
         name: INPUT.clinicName,
+        specialty: "dentist",
+        specialty_other: null,
         meta_dataset_id: "dataset-1",
         meta_access_token: "enc:token-1",
       });
@@ -250,6 +253,8 @@ describe("provision", () => {
       await provision({ ...INPUT, metaDatasetId: "dataset-1", metaAccessToken: undefined });
       expect(lastAccountsUpdate).toEqual({
         name: INPUT.clinicName,
+        specialty: "dentist",
+        specialty_other: null,
         meta_dataset_id: "dataset-1",
       });
     });
@@ -257,7 +262,11 @@ describe("provision", () => {
     it("provisions with neither Meta field", async () => {
       const { provision } = await import("./provision");
       await provision({ ...INPUT, metaDatasetId: undefined, metaAccessToken: undefined });
-      expect(lastAccountsUpdate).toEqual({ name: INPUT.clinicName });
+      expect(lastAccountsUpdate).toEqual({
+        name: INPUT.clinicName,
+        specialty: "dentist",
+        specialty_other: null,
+      });
     });
 
     // admin-console tasks.md 5.1 — the Page id and the event name join
@@ -268,6 +277,8 @@ describe("provision", () => {
       await provision({ ...INPUT, metaPageId: "page-1", metaEventName: "Purchase" });
       expect(lastAccountsUpdate).toEqual({
         name: INPUT.clinicName,
+        specialty: "dentist",
+        specialty_other: null,
         meta_dataset_id: "dataset-1",
         meta_access_token: "enc:token-1",
         meta_page_id: "page-1",
@@ -289,19 +300,28 @@ describe("provision", () => {
     });
   });
 
-  // tasks.md 1.1/1.2 — an address and a password are the whole required
-  // input; everything else resolves to a default in one place.
+  // tasks.md 1.1/1.2 — an address, a password, a specialty and a funnel
+  // model are the whole required input; everything else resolves to a
+  // default in one place. (provisioning spec.md, "Address and password
+  // alone provision an account" — the scenario name predates the split;
+  // specialty and funnelModel are required, non-defaulted inputs.)
   describe("address and password alone", () => {
     const MINIMAL = {
       clientEmail: "cliente1@effect.com",
       clientPassword: "correct-horse",
+      specialty: "dentist" as const,
+      funnelModel: "model-1" as const,
     };
 
     it("names the account after the e-mail's local part", async () => {
       const { provision } = await import("./provision");
       await provision(MINIMAL);
-      expect(lastAccountsUpdate).toEqual({ name: "cliente1" });
-      expect(lastPipelineInsert).toMatchObject({ name: "cliente1" });
+      expect(lastAccountsUpdate).toEqual({
+        name: "cliente1",
+        specialty: "dentist",
+        specialty_other: null,
+      });
+      expect(lastPipelineInsert).toMatchObject({ name: "Funil de vendas" });
     });
 
     it("reuses that name for the sign-in identity's full name", async () => {
@@ -312,13 +332,30 @@ describe("provision", () => {
       });
     });
 
-    it("seeds the dentist template when no specialty is chosen", async () => {
+    it("seeds the chosen funnel model's stages", async () => {
       const { provision } = await import("./provision");
-      const { SPECIALTY_TEMPLATES } = await import("./templates");
+      const { FUNNEL_MODELS } = await import("./templates");
       await provision(MINIMAL);
       expect((lastStagesInsert ?? []).map((s) => s.name)).toEqual(
-        SPECIALTY_TEMPLATES.dentist.map((s) => s.name),
+        FUNNEL_MODELS["model-1"].map((s) => s.name),
       );
+    });
+
+    it("stores 'other' with its free text and drops it for a listed specialty", async () => {
+      const { provision } = await import("./provision");
+      await provision({ ...MINIMAL, specialty: "other", specialtyOther: "quiropraxia" });
+      expect(lastAccountsUpdate).toEqual({
+        name: "cliente1",
+        specialty: "other",
+        specialty_other: "quiropraxia",
+      });
+
+      await provision({ ...MINIMAL, specialty: "dentist", specialtyOther: "quiropraxia" });
+      expect(lastAccountsUpdate).toEqual({
+        name: "cliente1",
+        specialty: "dentist",
+        specialty_other: null,
+      });
     });
 
     it("creates the assistant with an empty persona", async () => {
@@ -333,13 +370,23 @@ describe("provision", () => {
     it("prefers a supplied clinic name over the fallback", async () => {
       const { provision } = await import("./provision");
       await provision({ ...MINIMAL, clinicName: "Clínica Teste" });
-      expect(lastAccountsUpdate).toEqual({ name: "Clínica Teste" });
+      expect(lastAccountsUpdate).toEqual({
+        name: "Clínica Teste",
+        specialty: "dentist",
+        specialty_other: null,
+      });
+      // pipeline name never varies with the clinic name (design.md D4)
+      expect(lastPipelineInsert).toMatchObject({ name: "Funil de vendas" });
     });
 
     it("ignores a whitespace-only clinic name", async () => {
       const { provision } = await import("./provision");
       await provision({ ...MINIMAL, clinicName: "   " });
-      expect(lastAccountsUpdate).toEqual({ name: "cliente1" });
+      expect(lastAccountsUpdate).toEqual({
+        name: "cliente1",
+        specialty: "dentist",
+        specialty_other: null,
+      });
     });
 
     it("rolls back cleanly when the gateway fails on a minimal provision", async () => {

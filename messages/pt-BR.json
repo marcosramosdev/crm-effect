@@ -1983,8 +1983,31 @@
     "clientPassword": "Senha do cliente",
     "specialty": "Especialidade",
     "specialties": {
-      "dentist": "Dentista",
-      "physician": "Médico"
+      "social-worker": "Assistente social",
+      "biologist": "Biólogo",
+      "biomedical-scientist": "Biomédico",
+      "physical-education-professional": "Profissional de educação física",
+      "nurse": "Enfermeiro",
+      "pharmacist": "Farmacêutico",
+      "physiotherapist": "Fisioterapeuta",
+      "speech-therapist": "Fonoaudiólogo",
+      "physician": "Médico",
+      "veterinarian": "Médico veterinário",
+      "nutritionist": "Nutricionista",
+      "dentist": "Odontólogo",
+      "psychologist": "Psicólogo",
+      "occupational-therapist": "Terapeuta ocupacional",
+      "aesthetics-cosmetology": "Estética e cosmetologia",
+      "other": "Outros"
+    },
+    "specialtyOther": "Qual?",
+    "specialtyOtherPlaceholder": "Descreva a especialidade",
+    "funnelModel": "Modelo de funil",
+    "funnelModels": {
+      "model-1": "Modelo 1",
+      "model-2": "Modelo 2",
+      "model-3": "Modelo 3",
+      "model-4": "Modelo 4"
     },
     "persona": "Persona do assistente",
     "metaDatasetId": "ID do dataset da Meta (opcional — pode ser preenchido depois)",
@@ -2073,7 +2096,9 @@
       "conversionsTitle": "Conversões",
       "conversionsDesc": "As 50 conversões mais recentes registradas para esta conta.",
       "lifecycleTitle": "Conta",
-      "lifecycleDesc": "Nome, senha do cliente e se a conta está em operação."
+      "lifecycleDesc": "Nome, senha do cliente e se a conta está em operação.",
+      "specialtyTitle": "Especialidade",
+      "specialtyNone": "Nenhuma especialidade registrada"
     },
     "setup": {
       "whatsappConnected": "WhatsApp conectado pelo cliente",
