@@ -1,475 +1,631 @@
-# Plano de changes OpenSpec — adaptação do CRM para a realidade do cliente Effect
+# Plano de changes — OpenSpec
 
-Documento de planejamento. Consolida as decisões tomadas na sessão de
-levantamento e as organiza em 5 changes OpenSpec independentes, com escopo
-delimitado, ordem de execução e dependências explícitas.
+Onze changes, uma branch cada, na ordem em que devem ser feitas. Cada bloco
+traz o texto pronto para colar no `opsx:propose`, o nome da branch, as
+decisões que aquela change carrega e as specs que ela toca.
 
-Nada aqui foi implementado ainda. Cada seção vira uma pasta em
-`openspec/changes/<id>/` com `proposal.md`, `design.md`, `specs/` e `tasks.md`.
+## Antes de começar
 
-Procedimento operacional de entrada de cliente novo (provisionamento, QR,
-Business Manager, campanha e validação): [`runbook-cliente-novo.md`](./runbook-cliente-novo.md).
+Termine e arquive `openspec/changes/admin-client-lifecycle`. Faltam apenas
+verificações manuais: a tarefa `3.3` (aplicar `050_account_deactivation.sql`
+no editor SQL do Supabase), a `5.6` e as `7.1`–`7.3`. Enquanto ela estiver
+aberta, as changes 1, 2 e 3 editam specs que ainda estão em delta, e o
+`opsx:propose` vai gerar conflito sobre conflito.
 
----
+Duas decisões desta rodada revogam o que essa change entregou. Está previsto:
+a change 2 corrige a promessa de que desativar não apaga nada, e a change 3
+desfaz a redução das especialidades a dentista e médico. A revogação é
+explícita dentro de cada proposta, que é como o OpenSpec registra uma decisão
+revista.
 
-## Contexto do produto
+## Ordem e dependências
 
-O CRM é vendido **acoplado a outros serviços da Effect Digital**, nunca como
-produto avulso self-service. Quem cria a conta do cliente é a Effect; o cliente
-recebe credenciais já prontas e é responsável apenas por conectar o WhatsApp e
-decidir se liga o atendimento automático por IA.
+A seta significa dependência real: a change de baixo precisa da de cima já no
+`main`.
 
-O cliente-alvo é clínica/consultório (neurologia, odontologia, psicologia). A
-métrica central do negócio é **lead qualificado**, não venda fechada: as
-campanhas da Meta são otimizadas para volume de leads qualificados, e é esse
-evento que precisa voltar para a Conversions API.
+| # | Change | Branch | Depende de |
+|---|---|---|---|
+| 1 | `platform-admin-profiles` | `feat/platform-admin-profiles` | — |
+| 2 | `account-teardown-uazapi` | `feat/account-teardown-uazapi` | — |
+| 3 | `health-specialties-and-funnel-templates` | `feat/specialties-and-funnels` | — |
+| 4 | `brazilian-formatting` | `feat/brazilian-formatting` | — |
+| 5 | `contact-always-lands-in-contato` | `feat/contact-always-lands-in-contato` | 3 |
+| 6 | `followup-single-placeholder` | `fix/followup-single-placeholder` | — |
+| 7 | `account-pendings-panel` | `feat/account-pendings-panel` | 6 |
+| 8 | `ai-conversation-controls` | `feat/ai-conversation-controls` | 7 |
+| 9 | `ai-agent-prompt-builder` | `feat/ai-agent-prompt-builder` | 3, 8 |
+| 10 | `lost-deal-stops-meta-conversion` | `feat/lost-deal-stops-meta-conversion` | — |
+| 11 | `demo-account-seed` | `feat/demo-account-seed` | 3, 5, 6 |
 
----
+As changes 1, 2, 3, 4, 6 e 10 não dependem de nada e podem correr em paralelo.
+A 11 é a última porque semeia exatamente o que as outras definem.
 
-## Decisões fechadas
-
-| Tema                    | Decisão                                                                                                                                                                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Criação de contas       | Signup público fechado. Formulário interno em `/admin`, acesso por lista de e-mails em `PLATFORM_ADMINS`.                                                                                                                            |
-| Senha do cliente        | Definida pela Effect no provisionamento. Troca não é forçada; banner sugere trocar.                                                                                                                                                  |
-| Funil padrão            | Modelos por especialidade (dentista, médico, psicólogo) escolhidos no provisionamento. Todos contêm a etapa **"Em contato"** como primeira e travada.                                                                                |
-| Etapa fixa              | `pipeline_stages.is_system` — não pode ser renomeada, apagada nem tirada da primeira posição.                                                                                                                                        |
-| Agendamento             | Coluna `deals.scheduled_at TIMESTAMPTZ` (um agendamento "atual" por lead). `expected_close_date` é removida.                                                                                                                         |
-| Fuso                    | Coluna `accounts.timezone` com default `America/Sao_Paulo`, fora do formulário.                                                                                                                                                      |
-| Status do deal          | `won` renomeado para `qualified` em todo o stack (enum, tipos, componentes, i18n). `lost` mantido.                                                                                                                                   |
-| Tracking CTWA           | Colunas `ctwa_clid`, `ad_source_id`, `ctwa_clid_at` em `contacts` (último clique vence).                                                                                                                                             |
-| Evento Meta             | `Lead` (nome configurável por conta) disparado apenas quando o deal vira `qualified`. `action_source: business_messaging`, `messaging_channel: whatsapp`, `event_id = deal.id`. Enfileirado por trigger no banco, enviado pelo cron. |
-| Destino do evento       | **Dataset**, criado no Gerenciador de Eventos da Effect e compartilhado com a conta de anúncio do cliente. Não sai do webhook: é configuração por conta. As clínicas não têm WABA e não vão ter.                                     |
-| Credenciais Meta        | Preenchidas pela Effect no `/admin`, cifradas, invisíveis para o cliente: `meta_dataset_id`, `meta_access_token`, `meta_page_id`, `meta_event_name`, `meta_test_event_code`, `meta_send_ph`. Token gerado no Gerenciador de Eventos — sem app Meta. |
-| Falhas CAPI             | Tabela `meta_capi_events` com status e erro, retry no cron, contador em `/admin`. Tela dedicada fica para depois.                                                                                                                    |
-| Chave e modelo de IA    | Definidos pela Effect via env (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`). `ai_configs.api_key` vira nullable e some da UI do cliente.                                                                                                 |
-| Feature flag            | IA sai do conjunto escondido. `NEXT_PUBLIC_INCOMPLETE_FEATURES_ENABLED` continua valendo só para Broadcasts, Automations e Flows.                                                                                                    |
-| Auto-reply              | Desligado por default. É isso que o cliente "ativa" no onboarding.                                                                                                                                                                   |
-| Rascunho de IA          | Sempre disponível, independente do auto-reply.                                                                                                                                                                                       |
-| Lembrete de agendamento | Template com variáveis, sem IA. Até 3 offsets configuráveis (default 5 dias / 1 dia / 2 horas).                                                                                                                                      |
-| Aprovação de envio      | Nenhum lembrete sai sozinho. Vira pendência com **Aprovar / Recusar / Editar e enviar**.                                                                                                                                             |
-| Expiração               | Pendência não aprovada até a hora do agendamento expira sozinha.                                                                                                                                                                     |
-| Botões do lembrete      | Confirmar / Remarcar. "Confirmar" grava `appointment_confirmed_at` e **sinaliza** as pendências restantes sem cancelá-las.                                                                                                           |
-| Reativação              | Nunca automática. Botão por lead gera rascunho de IA a partir do histórico da conversa.                                                                                                                                              |
-| Disparo em lote         | Não existe — risco de bloqueio no WhatsApp e mensagem despersonalizada.                                                                                                                                                              |
-| Estilo de comunicação   | Amigável / Direto / Consultivo / Lembrete de vaga. Default por conta, trocável no momento do envio.                                                                                                                                  |
-| Calendário              | Mês e semana, somente leitura. Clicar no agendamento abre a conversa do lead.                                                                                                                                                        |
-| Lista de reativação     | Aba dentro de `/pipelines`, com filtros de dias sem contato, etapa e agendamento futuro.                                                                                                                                             |
-| Agendador               | `pg_cron` + `pg_net` chamando `/api/followups/cron` com `x-cron-secret`.                                                                                                                                                             |
-| Instância UAZAPI        | Provisionada automaticamente no formulário via `UAZAPI_ADMIN_TOKEN` (já presente em `.env.local`). Cliente só escaneia o QR.                                                                                                         |
-
-### Decisões adiadas conscientemente
-
-- Controle de comparecimento/no-show (exigiria tabela `deal_appointments` no lugar da coluna única).
-- Relatório de qual criativo gera mais lead qualificado (exigiria tabela `contact_ad_clicks` com histórico).
-- Limite de consumo de IA por conta (a medição já existe em `src/lib/ai/usage.ts`).
-- Tela dedicada de erros da Conversions API para operadores.
-- Remarcar agendamento arrastando no calendário.
-- Remoção de `deals.value` / `deals.currency`.
+Cada change atualiza o `CONTEXT.md` com os termos que ela resolve, em vez de
+um mutirão de glossário no fim.
 
 ---
 
-## Ordem de execução
+## 1. `platform-admin-profiles`
+
+**Branch:** `feat/platform-admin-profiles`
+**Specs:** `provisioning`, `admin-console`
+**Depende de:** nada
+
+### Decisões
+
+- Os operadores de plataforma saem do `PLATFORM_ADMINS` e passam a viver em
+  tabela. O env continua existindo como semente de bootstrap: quem está nele é
+  **gerente**, e o deployment nunca fica trancado para fora de si mesmo.
+- Dois papéis de operador. O **gerente** é o único que cadastra e remove
+  operadores. O **admin** faz tudo com contas de cliente — provisiona,
+  renomeia, reemite senha, desativa, reativa, edita a configuração de anúncios
+  — e enxerga todas as contas, não só as que criou.
+- Um operador não é membro de conta nenhuma. Ele é dono do produto; os
+  usuários das contas são clientes do produto. O shell do cliente nunca
+  renderiza para ele: nem barra lateral de conta, nem pendências de conectar
+  WhatsApp ou configurar pixel.
+- O login de um e-mail de operador leva direto ao `/admin`, e o encerramento de
+  sessão mora lá dentro.
+
+### Prompt para o `opsx:propose`
 
 ```
-1. lead-scheduling-and-calendar   (base: campo, calendário, rename)
-        |
-2. centralized-ai-setup           (chave/modelo por env, UI simplificada)
-        |
-3. client-provisioning            (consome 1 e 2: cria funil e ai_configs)
-        |
-4. followup-approval-queue        (consome 1 e 2: agendamento + rascunho IA)
-        |
-5. meta-capi-qualified-lead       (consome 1, 3 e 4: rename, credenciais, cron)
+Tirar a lista de operadores de plataforma do env e colocá-la no banco, com dois
+papéis, e separar por completo a sessão de operador da sessão de cliente.
+
+Hoje `src/lib/provisioning/platform-admins.ts` lê `PLATFORM_ADMINS` e compara
+e-mails. Quero uma tabela de operadores com nome, e-mail e papel, mais quem
+cadastrou e quando. O `PLATFORM_ADMINS` continua valendo, mas só como semente:
+todo e-mail que estiver nele é operador com papel de gerente, mesmo sem linha na
+tabela — é o que impede o deployment de ficar sem ninguém que possa entrar.
+
+Dois papéis. "Gerente" é o único que pode cadastrar e remover operadores, numa
+tela nova dentro do /admin. "Admin" pode tudo que diz respeito a contas de
+cliente — provisionar, renomear, reemitir senha, desativar, reativar, editar a
+configuração de anúncios — e vê todas as contas, sem escopo por quem criou.
+Nenhum dos dois pode se auto-remover ou se auto-promover.
+
+Um operador não é membro de conta alguma: ele é o dono do produto, os usuários
+das contas são clientes. Quando um e-mail de operador faz login, ele vai para
+/admin, nunca para /dashboard, e nenhuma superfície de cliente renderiza para
+ele — sem barra lateral de conta, sem banner de trocar senha, sem pendência de
+conectar WhatsApp ou de configurar pixel. O botão de sair fica dentro do /admin.
+Hoje `getCurrentAccount()` exige membership e o layout de dashboard assume que
+todo mundo tem conta; isso precisa deixar de valer para operador.
+
+Toda verificação de operador continua sendo refeita no servidor a cada ação,
+como já é hoje, e agora consulta a tabela além do env.
 ```
 
-A change 2 vem antes da 3 porque o provisionamento cria a linha de `ai_configs`
-e não faz sentido escrevê-la no formato antigo (com `api_key` obrigatório) para
-migrar logo em seguida.
-
 ---
 
-## Change 1 — `lead-scheduling-and-calendar`
+## 2. `account-teardown-uazapi`
 
-### Why
+**Branch:** `feat/account-teardown-uazapi`
+**Specs:** `admin-console`, `whatsapp-connection`
+**Depende de:** nada
 
-O deal só guarda `expected_close_date DATE`. Clínica trabalha com hora marcada,
-e todo o resto do plano (lembrete, calendário, fila de follow-up) depende de um
-campo com data e hora. O status `won` também não descreve o que o negócio mede.
+### Decisões
 
-### What changes
+- Desativar uma conta apaga a instância dela no UAZAPI.
+- Reativar devolve todos os dados do CRM — contatos, negócios, conversas — mas
+  **não** a conexão: o cliente precisa parear o número outra vez.
+- A promessa atual de `admin-client-lifecycle` ("nada foi apagado, reativar
+  devolve tudo como estava") passa a ser falsa sobre a conexão e precisa ser
+  corrigida na spec e no texto de confirmação.
 
-- Adiciona `deals.scheduled_at TIMESTAMPTZ` e `deals.appointment_confirmed_at TIMESTAMPTZ`.
-- Remove `deals.expected_close_date` e todos os seus usos.
-- Adiciona `accounts.timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo'`.
-- Renomeia o status `won` para `qualified`: CHECK constraint, `DealStatus`,
-  componentes de pipeline/contato e as 3 chaves i18n.
-- Nova rota `/calendar` com visão mensal e semanal dos leads agendados,
-  somente leitura, mostrando nome do lead e horário. Clicar abre a conversa.
-
-### Spec deltas
-
-- `openspec/specs/deals/spec.md` — novos requisitos de agendamento e renomeação do status.
-- Nova capability `calendar`.
-
-### Arquivos principais
-
-- `supabase/migrations/044_lead_scheduling.sql`
-- `src/types/index.ts` (`DealStatus`)
-- `src/components/pipelines/deal-form.tsx`, `deal-card.tsx`, `pipeline-board.tsx`, `pipeline-analytics.tsx`
-- `src/components/contacts/contact-detail-view.tsx`
-- `src/lib/inbox/deals.ts`
-- `messages/{en,pt-BR,ko}.json`
-- `src/app/(dashboard)/calendar/page.tsx` + `src/components/calendar/*`
-
-### Fora de escopo
-
-Arrastar para remarcar, criar agendamento pelo calendário, histórico de
-remarcação, controle de comparecimento.
-
-### Verificação
-
-`deal-form` salva e relê data+hora no fuso da conta; `npm run test` verde em
-`src/lib/inbox/deals.test.ts`; nenhuma ocorrência de `expected_close_date` ou
-de `'won'` restante no repositório.
-
----
-
-## Change 2 — `centralized-ai-setup`
-
-### Why
-
-A IA está pronta no código (providers, RAG, auto-reply, playground) mas
-escondida atrás da mesma flag de Broadcasts/Flows, e exige que o cliente traga
-a própria chave de OpenAI. Nenhum médico vai gerar uma API key. A chave e o
-modelo passam a ser da Effect.
-
-### What changes
-
-- Remove AI Agents do conjunto gated; a flag continua cobrindo Broadcasts,
-  Automations e Flows.
-- `AI_PROVIDER`, `AI_MODEL` e `AI_API_KEY` no servidor; `ai_configs.api_key`
-  vira nullable e é ignorada quando o env está presente.
-- Tela de IA simplificada: contexto/persona da clínica, estilo de comunicação
-  padrão, base de conhecimento, e dois toggles — "IA responde automaticamente"
-  (off por default) e "IA sugere rascunhos" (on).
-- Novo campo `ai_configs.followup_style` com os valores Amigável, Direto,
-  Consultivo e Lembrete de vaga, usado como default e trocável no envio.
-- O prompt de follow-up proíbe promessa de resultado e linguagem
-  sensacionalista (publicidade médica, CFM 1.974/2011).
-
-### Spec deltas
-
-- `openspec/specs/feature-availability/spec.md` — reduz o conjunto gated a três features.
-- Nova capability `ai-assistant`.
-
-### Arquivos principais
-
-- `supabase/migrations/045_centralized_ai_config.sql`
-- `src/lib/ai/config.ts`, `src/lib/ai/defaults.ts`, `src/lib/ai/generate.ts`
-- `src/app/(dashboard)/agents/page.tsx`, `src/components/agents/*`
-- O módulo que implementa a flag de features incompletas hoje
-
-### Fora de escopo
-
-Limite de consumo por conta, escolha de modelo por cliente, wizard em passos.
-
-### Verificação
-
-Conta sem `api_key` gera resposta usando a chave do env; `/agents` acessível
-com a flag desligada; `/broadcasts` continua redirecionando para o dashboard.
-
----
-
-## Change 3 — `client-provisioning`
-
-### Why
-
-Hoje qualquer pessoa cria conta em `/signup` e começa do zero. O modelo de
-venda é o oposto: a Effect provisiona a conta inteira e entrega credenciais.
-
-### What changes
-
-- Fecha o signup público.
-- Rota `/admin` protegida por `PLATFORM_ADMINS` (lista de e-mails em env).
-- Formulário de provisionamento cria, em uma transação: usuário no Supabase
-  Auth com e-mail já confirmado, `accounts`, `account_members` como `owner`,
-  pipeline a partir do modelo de especialidade escolhido, instância UAZAPI via
-  `UAZAPI_ADMIN_TOKEN`, `ai_configs` com a persona inicial e as credenciais
-  Meta cifradas.
-- Modelos de funil por especialidade (dentista, médico, psicólogo), definidos
-  em código. Todos começam com a etapa "Em contato".
-- `pipeline_stages.is_system BOOLEAN` — a etapa "Em contato" não pode ser
-  renomeada, apagada nem sair da primeira posição, na UI e no banco.
-- `whatsapp_config.inbound_default_stage_id` apontado para a etapa fixa, para
-  que todo lead novo do WhatsApp caia nela.
-- Colunas de credencial Meta (`meta_dataset_id`, `meta_access_token` cifrado).
-- Banner sugerindo troca de senha no primeiro acesso.
-
-### Spec deltas
-
-- Nova capability `provisioning`.
-- Requisito de etapa de sistema na capability de pipelines/deals.
-
-### Arquivos principais
-
-- `supabase/migrations/046_provisioning.sql`
-- `src/app/admin/*`, `src/lib/provisioning/*`
-- `src/lib/whatsapp/uazapi-admin.ts` (criação de instância)
-- `src/app/(auth)/signup/page.tsx` (remoção)
-
-### Fora de escopo
-
-Papel `platform_admin` no banco, autoatendimento, cobrança, tela de erros CAPI.
-
-### Verificação
-
-Provisionar uma conta de teste ponta a ponta: login com a senha entregue,
-funil com "Em contato" travada, QR code disponível em `/connection`, tentativa
-de apagar a etapa fixa recusada.
-
----
-
-## Change 4 — `followup-approval-queue`
-
-### Why
-
-Lembrete de consulta e reativação de lead parado são hoje trabalho manual, e
-nenhuma mensagem automática pode sair sem revisão humana num contexto de saúde.
-
-### What changes
-
-- Tabela `followup_messages`: deal, offset, corpo renderizado, status
-  (`pending`, `approved`, `sent`, `rejected`, `expired`), timestamps.
-- Configuração por conta: até 3 offsets de lembrete (default 5 dias, 1 dia, 2
-  horas), template do lembrete com `{nome}`, `{data}`, `{hora}`, `{medico}`, e
-  o N de dias que define "lead parado" (default 15).
-- `pg_cron` + `pg_net` chamando `/api/followups/cron` com `x-cron-secret`. O
-  cron apenas materializa pendências e expira as vencidas; não envia nada.
-- Seção "Pendentes de envio" na página de notificações, com **Aprovar**,
-  **Recusar** e **Editar e enviar**.
-- Envio usa `sendInteractiveButtons()` com Confirmar / Remarcar. A resposta
-  chega como `interactive_reply_id` no webhook: "Confirmar" grava
-  `appointment_confirmed_at` e sinaliza as pendências restantes do mesmo deal;
-  "Remarcar" notifica no inbox sem alterar `scheduled_at`.
-- Botão "Follow-up com IA" em todo lead: gera rascunho a partir do histórico da
-  conversa, respeitando o estilo escolhido, e abre para revisão antes do envio.
-- Aba de reativação dentro de `/pipelines`: lista filtrável por dias sem
-  contato (`conversations.last_message_at`), etapa do funil e presença de
-  agendamento futuro, com badge de contagem.
-
-### Spec deltas
-
-- Nova capability `followups`.
-- `openspec/specs/inbox/spec.md` — tratamento da resposta de botão.
-
-### Arquivos principais
-
-- `supabase/migrations/047_followup_queue.sql`
-- `src/app/api/followups/cron/route.ts`
-- `src/lib/followups/*`
-- `src/app/(dashboard)/notifications/page.tsx`
-- `src/app/(dashboard)/pipelines/page.tsx`
-- `src/app/api/whatsapp/webhook/[secret]/route.ts` (resposta de botão)
-- `src/app/api/ai/draft`, `src/lib/ai/generate.ts`
-
-### Fora de escopo
-
-Envio em lote, reativação automática, IA no texto do lembrete, cancelamento
-por botão.
-
-### Verificação
-
-Teste de unidade da materialização de pendências (offsets, deduplicação por
-`deal + offset`, expiração após o horário do agendamento) e do roteamento da
-resposta de botão. Um agendamento de teste gera exatamente 3 pendências.
-
----
-
-## Change 5 — `meta-capi-qualified-lead`
-
-### Why
-
-As campanhas otimizam por lead qualificado, mas a Meta nunca recebe o sinal: o
-tracking CTWA que chega no webhook da UAZAPI (`ctwaClid`, `sourceID`,
-`conversionSource`) é descartado hoje.
-
-Enviar o evento é a parte fácil. O que decide se isso funciona é **identidade e
-prazo**.
-
-### Como a comunicação se fecha (de ponta a ponta)
+### Prompt para o `opsx:propose`
 
 ```
-anúncio CTWA (Instagram/Facebook)
-        |  usuário clica, Meta gera ctwa_clid
-        v
-1ª mensagem no WhatsApp  ->  webhook UAZAPI
-        contextInfo.externalAdReply.ctwaClid   (o clique)
-        contextInfo.externalAdReply.sourceID   (o criativo)
-        v
-contacts.ctwa_clid / ad_source_id / ctwa_clid_at   (último clique vence)
-        v
-deal vira `qualified`  ->  trigger no Postgres  ->  meta_capi_events (outbox)
-        v
-cron da change 4  ->  POST graph.facebook.com/v23.0/<dataset_id>/events
-        v
-Gerenciador de Eventos  ->  conjunto de anúncios otimiza por esse evento
+Quando um operador desativa uma conta, apagar a instância dela no UAZAPI.
+
+Hoje a desativação só marca `accounts.deactivated_at` e cancela as conversões à
+espera. A instância no gateway continua de pé, ocupando um slot e mantendo uma
+sessão de WhatsApp viva de um cliente que não é mais cliente.
+
+Desativar passa a apagar a instância no gateway. Reativar devolve todos os dados
+do CRM — contatos, negócios, conversas, histórico — mas não devolve a conexão: o
+cliente vai precisar escanear o QR code de novo e a conta volta com o WhatsApp
+desconectado.
+
+Isso contradiz o que a spec de admin-console afirma hoje, que desativar não
+apaga nada e reativar devolve tudo como estava. A afirmação precisa ser
+corrigida onde estiver, e a confirmação de desativação precisa dizer, com todas
+as letras, que a conexão do WhatsApp será perdida e exigirá novo pareamento —
+antes de o operador confirmar, não depois.
+
+Se o gateway não responder na hora de apagar, a conta ainda assim é desativada e
+o operador é avisado de qual instância ficou para trás, identificada o bastante
+para remover à mão. Uma conta que não pode ser desativada porque o gateway caiu
+é pior que uma instância órfã.
 ```
-
-### Identidade: não existe WABA, e não vai existir
-
-As clínicas ficam na UAZAPI, que conecta por QR. Número que vive só no app do
-WhatsApp Business não tem WhatsApp Business Account no Gerenciador do Negócio.
-Isso derruba os dois lados do caminho documentado pela Meta: não há
-`POST /v23.0/<WABA_ID>/dataset` para criar o dataset, e não há
-`user_data.whatsapp_business_account_id` para identificar a conversão.
-
-O caminho adotado no lugar: **dataset criado no Gerenciador de Eventos da
-própria Effect**, compartilhado com a conta de anúncio do cliente, com o token
-gerado ali mesmo (dataset → Configurações → Conversions API → Gerar token de
-acesso). Isso dispensa app Meta, System User, verificação de negócio, App Review
-e login OAuth — nada disso é construído.
-
-Resta uma pergunta que a documentação não responde: a Meta aceita um evento de
-business messaging com `ctwa_clid` sozinho, num dataset sem WABA por trás? Isso
-é resolvido por **um experimento manual antes de escrever o sender** (D0 do
-`design.md`), não por leitura.
-
-### De onde vem cada valor
-
-| Valor               | Origem                                                                                                                      | Observação                                                      |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `ctwa_clid`         | webhook: `message.content.contextInfo.externalAdReply.ctwaClid`                                                             | só vem na **primeira** mensagem da conversa aberta pelo anúncio |
-| `ad_source_id`      | `externalAdReply.sourceID` (ex.: `120250103171390297`)                                                                      | ID do criativo. Guardado para diagnóstico, não vai para a Meta  |
-| `meta_dataset_id`   | Gerenciador de Eventos no BM da Effect — dataset novo ou Pixel existente, compartilhado com a conta de anúncio do cliente   | configuração por conta, não sai do webhook                      |
-| `meta_access_token` | o mesmo dataset → Configurações → Conversions API → Gerar token de acesso                                                   | copiado uma vez; a Meta não guarda. Cifrado em `accounts`       |
-| `meta_page_id`      | Página de onde o anúncio roda (visível em `externalAdReply.mediaURL`)                                                       | **diagnóstico apenas** — não é enviado à Meta                   |
-| `event_id`          | `deal.id`                                                                                                                   | nosso, estável entre retentativas                               |
-| `event_time`        | hora da qualificação, **em segundos**                                                                                       | `messageTimestamp` do webhook vem em milissegundos              |
-
-O `conversionData` / `ctwaPayload` (base64) é payload cifrado da própria Meta.
-Não é decodificado e não é necessário — a chave de atribuição documentada é o
-`ctwa_clid`.
-
-### O que precisa ser configurado fora do código
-
-1. Dataset criado (ou Pixel reaproveitado) no Gerenciador de Eventos da Effect
-   e **compartilhado com a conta de anúncio do cliente**.
-2. Token gerado nesse dataset e colado no `/admin`.
-3. Conjunto de anúncios com localização da conversão **WhatsApp** e meta de
-   desempenho apontando para **o mesmo evento** que o CRM envia
-   (`accounts.meta_event_name`, default `Lead`). Nome divergente = zero erro do
-   nosso lado e zero otimização do lado deles.
-4. Validação com `test_event_code` (Gerenciador de Eventos → Eventos de Teste)
-   antes de ligar a conta. Depois **limpar o código** — conta esquecida em modo
-   de teste não otimiza nada e parece perfeitamente configurada.
-
-### What changes
-
-- O webhook passa a persistir `ctwa_clid`, `ad_source_id` e `ctwa_clid_at` em
-  `contacts` quando a mensagem traz `contextInfo.externalAdReply`. O campo
-  `content` da UAZAPI é `oneOf: [object, string]`, então o parser trata as duas
-  formas — tratar só objeto grava nada, em silêncio.
-- **Trigger no banco**, não chamada na UI: o status do deal é escrito direto do
-  browser por seis componentes diferentes. Um `AFTER UPDATE OF status` mais um
-  `AFTER INSERT` cobrem todos de uma vez, congelando o clique no momento da
-  transição. O trigger é `SECURITY DEFINER` (a 046 revogou `SELECT ON accounts`
-  do role `authenticated`), usa `ON CONFLICT DO NOTHING` e engole exceções — um
-  bug no outbox nunca pode custar uma mudança de status ao cliente.
-- Tabela `meta_capi_events` (outbox) com `status`, `attempts`, `next_attempt_at`,
-  `last_error` e índice único `(deal_id, event_name)` — não duplicar vira
-  garantia do banco.
-- **Qualificado sem dataset configurado vira linha `unconfigured`**, não
-  silêncio. É o contador que justifica configurar a conta. Não expira e não
-  revive quando a conta for configurada depois: o clique já estaria velho.
-  Qualificado sem clique (orgânico) não gera linha nenhuma.
-- O cron da change 4 ganha um terceiro passo que drena o outbox: `POST` para
-  `graph.facebook.com/v23.0/<dataset_id>/events` com
-  `action_source: "business_messaging"`, `messaging_channel: "whatsapp"`,
-  `user_data.ctwa_clid`, `partner_agent: "effect_crm_1_0"` e
-  `event_id = deal.id`. Token no corpo, nunca na URL.
-- **Janela de 7 dias verificada antes do POST.** Clique mais velho que isso vira
-  `expired` com motivo registrado, sem gastar requisição.
-- Retentativa com backoff (`5min * 2^tentativas`, máx. 6) para erro de rede,
-  429 e 5xx; rejeição permanente (clid inválido, payload inválido, OAuth) para
-  de tentar e guarda o corpo do erro da Meta na íntegra.
-- Novas colunas em `accounts`: `meta_page_id`, `meta_event_name` (default
-  `Lead`), `meta_test_event_code`, `meta_send_ph`. Fora da lista de
-  `GRANT SELECT` que a 046 estreitou — invisíveis para o cliente.
-- `user_data.ph` (SHA-256 do telefone) atrás de `meta_send_ph`, **default
-  `false`**, ligado por conta só depois que aquela clínica tiver consentimento
-  cobrindo o compartilhamento. Hash calculado no envio, nunca persistido.
-- `/admin`: formulário de edição das credenciais por conta (gate
-  `PLATFORM_ADMINS`, rechecado na rota porque o middleware cobre `/admin` mas
-  não `/api/admin`), contadores de pendente / não configurado / falha /
-  expirado, e aviso de conta em modo de teste.
-
-### Spec deltas
-
-- Nova capability `meta-conversions`.
-- `openspec/specs/whatsapp-messaging/spec.md` — captura do tracking no inbound.
-- `openspec/specs/provisioning/spec.md` — credenciais Meta ampliadas, caminho de
-  edição pós-provisionamento, flag de dado pessoal desligada por default.
-
-### Arquivos principais
-
-- `supabase/migrations/048_meta_capi.sql` (colunas, tabela, triggers, RLS)
-- `src/app/api/whatsapp/webhook/[secret]/route.ts` (captura)
-- `src/lib/meta/capi.ts` (payload + envio + classificação de erro)
-- `src/lib/meta/outbox.ts` (claim, frescor, retry)
-- `src/app/api/followups/cron/route.ts` (terceiro passo)
-- `src/app/api/admin/accounts/[id]/meta/route.ts`, `src/app/admin/*`
-
-### Fora de escopo
-
-App Meta próprio e tudo que depende dele (System User, App Review, Facebook
-Login for Business, tela "Conectar Meta"). Evento no agendamento, evento de
-`Purchase`, relatório de criativo dentro do CRM, `external_id` no `user_data`,
-criação do dataset pela própria aplicação, tela dedicada de erros.
-
-### Verificação
-
-Teste com o payload real do webhook (exemplo do Dr. Arthur Pena), nas duas
-formas de `content`, confirmando que o `ctwa_clid` é extraído e gravado;
-qualificar esse deal gera exatamente uma linha no outbox; conta sem dataset gera
-`unconfigured`; deal criado já como `qualified` gera linha (é o que pega alguém
-reintroduzindo `BEFORE INSERT`); arrastar um card para Qualificado logado como
-usuário da clínica funciona (é o que pega `SECURITY DEFINER` faltando); com
-`meta_test_event_code` preenchido o evento aparece em Eventos de Teste.
 
 ---
 
-## Riscos conhecidos
+## 3. `health-specialties-and-funnel-templates`
 
-1. **Janela de 7 dias do `ctwa_clid`.** A Meta descarta evento cujo clique é
-   mais velho que isso. Lead que qualifica semanas depois não gera evento
-   válido — vira `expired` em `meta_capi_events`, contado em `/admin`, não
-   silêncio. Proporção alta = ajuste operacional (qualificar mais cedo), não
-   bug.
-2. **`ctwa_clid` sozinho pode não bastar.** As clínicas não têm WABA e não vão
-   ter, então `user_data.whatsapp_business_account_id` — exigido pela
-   documentação de business messaging — nunca é enviado. Se a Meta recusar, a
-   change 5 entrega só a captura, e a linha de `error_subcode` fica registrada
-   em `design.md` D0. O experimento manual com `test_event_code` resolve isso
-   **antes** de dizer ao cliente que a campanha está otimizando. Atenção:
-   `events_received: 1` sem o evento aparecer em Eventos de Teste é recusa
-   disfarçada de sucesso.
-3. **Token do Gerenciador de Eventos morre com o acesso de quem o gerou.** Não
-   é token de app; está preso à pessoa e ao dataset. A falha aparece como
-   rejeição permanente por OAuth no outbox, contada em `/admin` — nada avisa
-   antes.
-4. **Nome do evento divergente do conjunto de anúncios.** Falha silenciosa dos
-   dois lados. Por isso `meta_event_name` é por conta e o formulário traz o
-   aviso.
-5. **Conta esquecida em modo de teste.** `meta_test_event_code` preenchido faz
-   a conta parecer configurada e não otimizar nada. O aviso no `/admin` é a
-   única defesa.
-6. **`meta_send_ph` ligado sem texto de consentimento.** Hash de telefone de
-   paciente é dado pessoal pseudonimizado, não anônimo, e num contexto clínico
-   permite inferência de saúde. Default `false`; ligar é decisão com base legal
-   escrita, por conta.
-7. **Auto-reply em contexto clínico.** O toggle existe e vem desligado.
-   `src/lib/ai/handoff.ts` já implementa a saída para humano, mas o limiar
-   precisa ser calibrado antes de oferecer o recurso a um cliente.
-8. **Remoção de `expected_close_date`.** É destrutiva e sem down-migration.
-   Fazer backup antes de aplicar em produção.
+**Branch:** `feat/specialties-and-funnels`
+**Specs:** `provisioning`, `deals`
+**Depende de:** nada
+
+### Decisões
+
+- Especialidade e modelo de funil deixam de ser o mesmo campo. Especialidade é
+  o nicho de saúde em que o cliente atua; o modelo de funil é o pipeline
+  principal da conta. São escolhas independentes no provisionamento.
+- A especialidade não decide mais nada: descreve a clínica e entra no contexto
+  da IA.
+- Lista de especialidades: as 14 profissões de saúde reconhecidas pelo Conselho
+  Nacional de Saúde — assistente social, biólogo, biomédico, profissional de
+  educação física, enfermeiro, farmacêutico, fisioterapeuta, fonoaudiólogo,
+  médico, médico veterinário, nutricionista, odontólogo, psicólogo, terapeuta
+  ocupacional — mais "estética e cosmetologia" e mais "Outros", que abre campo
+  de texto livre.
+- Quatro modelos de funil, todos com "Em contato" como primeira etapa e etapa
+  de sistema, e "Perdido" como última.
+- Os quatro pipelines se chamam **"Funil de vendas"**. O que varia são as
+  etapas.
+- "Perdido" é organização visual do time. Arrastar um card para lá **não**
+  mexe no `status` do negócio, e marcar um negócio como perdido não move o
+  card. O `status = lost` continua sendo a decisão, como já é hoje.
+- Revoga a redução a `dentist` e `physician` feita em `admin-client-lifecycle`.
+
+### Prompt para o `opsx:propose`
+
+```
+Separar especialidade de modelo de funil no provisionamento, trocar a lista de
+especialidades e substituir os templates de pipeline por quatro.
+
+Hoje escolher a especialidade escolhe o template de pipeline — um campo com dois
+papéis, e por isso o conjunto foi reduzido a dentista e médico. Passam a ser
+dois campos independentes. Especialidade é o nicho de saúde em que o cliente
+atua: descreve a clínica, entra no contexto da IA e não decide mais nada. Modelo
+de funil é o pipeline principal que a conta vai nascer com, escolhido pelo
+gestor antes de criar a conta.
+
+A lista de especialidades passa a ser as 14 profissões de saúde reconhecidas
+pelo Conselho Nacional de Saúde — assistente social, biólogo, biomédico,
+profissional de educação física, enfermeiro, farmacêutico, fisioterapeuta,
+fonoaudiólogo, médico, médico veterinário, nutricionista, odontólogo, psicólogo
+e terapeuta ocupacional — mais "estética e cosmetologia", mais "Outros", que
+abre um campo de texto livre. Isso desfaz a redução a dentista e médico que a
+change admin-client-lifecycle fez.
+
+Quatro modelos de funil, nesta ordem de etapas:
+
+1. Em contato, Follow-up, Avaliação agendada, Avaliação realizada, Orçamento
+   apresentado, Procedimento agendado, Concluído, Perdido
+2. Em contato, Follow-up, Consulta agendada, Consulta realizada, Tratamento
+   indicado, Retorno agendado, Concluído, Perdido
+3. Em contato, Follow-up, Avaliação agendada, Avaliação realizada, Proposta
+   apresentada, Procedimento agendado, Concluído, Perdido
+4. Em contato, Follow-up, Reunião agendada, Reunião realizada, Proposta enviada,
+   Negociação, Fechado, Perdido
+
+Os quatro pipelines se chamam "Funil de vendas" — o nome é o mesmo, o que muda
+são as etapas. "Em contato" continua sendo a primeira etapa e a etapa de
+sistema protegida, em todos.
+
+"Perdido" é só organização visual do quadro. Arrastar um card para "Perdido" não
+altera o status do negócio, e marcar um negócio como perdido não move o card. O
+status `lost`, com o motivo que já existe, continua sendo a decisão de verdade.
+
+Contas já provisionadas não são tocadas: um template é lido uma vez, na criação.
+```
+
+---
+
+## 4. `brazilian-formatting`
+
+**Branch:** `feat/brazilian-formatting`
+**Specs:** `localization`
+**Depende de:** nada
+
+### Decisões
+
+- Todo número, moeda e data formata em `pt-BR`, não no locale do navegador de
+  quem está olhando.
+- Contas novas nascem com moeda `BRL` em vez de `USD`.
+- Seletor de data vira o do shadcn (`calendar`, sobre `react-day-picker`), com
+  dia e hora no mesmo controle, no lugar dos `datetime-local` de hoje.
+- Nenhum identificador interno aparece para o usuário.
+
+### Prompt para o `opsx:propose`
+
+```
+Três acertos de apresentação, todos mecânicos, numa change só.
+
+Primeiro, formatação brasileira. Há cerca de oito chamadas de `toLocaleString()`
+sem locale espalhadas pelo app — dashboard, broadcasts, console de admin — e
+cada uma formata no locale do navegador de quem está olhando, não no do produto.
+Todas passam a formatar em pt-BR. E `accounts.default_currency` tem default
+'USD' desde a migration 021: contas novas passam a nascer em BRL. Contas que já
+existem ficam como estão; trocar a moeda de uma conta em operação reinterpreta
+os valores dos negócios dela.
+
+Segundo, o seletor de data. Hoje o agendamento do lead usa um input
+`datetime-local` cru. Instalar o componente `calendar` do shadcn e montar um
+seletor único de data e hora, aplicado ao agendamento do lead e a todo filtro de
+data da aplicação.
+
+Terceiro, nenhum identificador interno visível. `memberLabel()` em
+`src/lib/account/members.ts` cai para o `user_id` — um UUID — quando o membro
+não tem nome nem e-mail, e o mesmo fallback está em `automation-builder.tsx`.
+Passa a mostrar um rótulo legível de membro sem nome. Vale como regra geral:
+nenhuma tela mostra UUID ao usuário, em lugar nenhum — nem no seletor de
+pipeline, nem no de responsável pelo atendimento, nem em mensagem de erro.
+```
+
+---
+
+## 5. `contact-always-lands-in-contato`
+
+**Branch:** `feat/contact-always-lands-in-contato`
+**Specs:** `contacts`, `deals`, `provisioning`
+**Depende de:** 3
+
+### Decisões
+
+- Todo contato criado ganha um negócio na etapa "Em contato" do funil da conta,
+  em todas as portas: formulário de contato, importação CSV, API pública
+  `/api/v1/contacts`, automação e mensagem recebida no WhatsApp.
+- Iniciar uma conversa com um contato que ainda não tem negócio também cria o
+  negócio. Não é preciso esperar o lead responder.
+- Deixa de ser opt-in: hoje depende de `whatsapp_config.inbound_default_pipeline_id`
+  estar configurado, e falha em silêncio quando não está.
+- A importação avisa quantos negócios vai criar antes de confirmar.
+- Contas existentes: a migração cria o negócio que falta para contatos órfãos e
+  **não** funde os que têm mais de um — fundir apagaria histórico.
+
+### Prompt para o `opsx:propose`
+
+```
+Fazer com que todo contato tenha um negócio em "Em contato", por qualquer porta
+que ele entre, e também quando somos nós que iniciamos a conversa.
+
+Hoje só a mensagem recebida no WhatsApp cria negócio, é opt-in (depende de
+`whatsapp_config.inbound_default_pipeline_id` e `inbound_default_stage_id` terem
+sido configurados) e é best-effort: se falhar, registra no log e segue. O
+resultado é contato sem negócio, que não aparece no funil.
+
+Passa a valer em todas as portas de criação de contato: o formulário de contato,
+a importação de CSV, a API pública POST /api/v1/contacts, a automação e a
+mensagem recebida no WhatsApp. Todo contato criado ganha um negócio na etapa "Em
+contato" do funil da conta, com o status open.
+
+E quando somos nós que abrimos a conversa: iniciar um atendimento no WhatsApp
+com um contato que ainda não tem negócio cria o negócio na hora, sem esperar o
+lead responder.
+
+O destino deixa de ser configuração opcional e passa a ser a etapa de sistema
+"Em contato" do funil principal da conta, que toda conta provisionada tem.
+
+Na importação de CSV, avisar quantos negócios serão criados antes de confirmar —
+importar quinhentas linhas cria quinhentos negócios e isso não pode ser
+surpresa.
+
+Para contas que já existem, uma migração cria o negócio que falta a cada contato
+órfão. Contatos que hoje têm mais de um negócio ficam como estão: fundir
+apagaria histórico. O que muda é que não se cria mais órfão daqui para frente.
+```
+
+---
+
+## 6. `followup-single-placeholder`
+
+**Branch:** `fix/followup-single-placeholder`
+**Specs:** `followups`
+**Depende de:** nada
+
+### Decisões
+
+- O modelo de lembrete passa a aceitar um único placeholder, `{horario}`, que
+  rende dia e hora no fuso da conta.
+- `{nome}`, `{data}`, `{hora}` e `{medico}` deixam de existir. Uma migração
+  reescreve os modelos já salvos.
+- Os dois botões — confirmar e remarcar — já existem e continuam.
+- Corrige o `FORMATTING_ERROR` que aparece no console ao abrir as configurações
+  de negócios. A causa não é o follow-up: é a string de ajuda em
+  `messages/en.json` e `messages/pt-BR.json`, linha 1860, onde `{medico}` está
+  escrito solto e o next-intl o lê como variável ICU não fornecida. Some junto
+  com o placeholder.
+
+### Prompt para o `opsx:propose`
+
+```
+Reduzir o modelo do lembrete de follow-up a um único placeholder e matar o
+FORMATTING_ERROR que ele causa hoje.
+
+O modelo aceita quatro placeholders: {nome}, {data}, {hora} e {medico}. Passa a
+aceitar um só, {horario}, que rende o dia e a hora do agendamento no fuso da
+conta — por exemplo "12/03 às 14:30". Dia e hora juntos: um lembrete enviado
+cinco dias antes sem a data não serve para nada.
+
+Os outros quatro deixam de ser aceitos. Uma migração reescreve os modelos já
+salvos para o novo formato, e a validação passa a recusar qualquer placeholder
+fora de {horario}.
+
+A mensagem continua saindo como mensagem interativa com os dois botões, o de
+confirmar e o de remarcar, exatamente como já sai hoje.
+
+Isso também resolve um erro que aparece no console do navegador ao abrir as
+configurações de negócios:
+
+  FORMATTING_ERROR: The intl string context variable "medico" was not provided
+  to the string "{medico} reads the deal custom field named medico..."
+
+A causa não é o follow-up: é a string de ajuda em messages/en.json e
+messages/pt-BR.json, na linha 1860, onde {medico} aparece solto no texto e o
+next-intl o interpreta como variável ICU que ninguém forneceu. A string some
+junto com o placeholder. Se sobrar qualquer outro texto de ajuda citando um
+placeholder literalmente, ele precisa ser escapado como ICU, não deixado solto.
+```
+
+---
+
+## 7. `account-pendings-panel`
+
+**Branch:** `feat/account-pendings-panel`
+**Specs:** nova capability `pendings`, `followups`
+**Depende de:** 6
+
+### Decisões
+
+- **Pendência** é um objeto novo, da conta e não de uma pessoa: todo membro vê
+  todas as pendências, para saber o que está aberto em cada atendimento.
+- Estado `pendente ⇄ atendido`, alternável nos dois sentidos, registrando quem
+  mudou e quando. Dar como atendido por engano tem volta.
+- As notificações pessoais que já existem (`conversation_assigned`, com
+  `user_id` e `read_at`) ficam como estão. "Te atribuíram isso" é legitimamente
+  pessoal.
+- A página de notificações mostra as duas coisas, com as pendências em cima —
+  são elas que exigem ação.
+- Os follow-ups pendentes, que já vivem nessa página, são a primeira fonte de
+  pendência.
+
+### Prompt para o `opsx:propose`
+
+```
+Criar pendência como um objeto da conta e reorganizar a página de notificações
+em volta dela.
+
+Hoje a tabela `notifications` (migration 027) é pessoal: tem user_id, tem
+read_at, e a RLS entrega cada linha só ao dono. Só existe um tipo em uso,
+conversation_assigned. Isso serve para "te atribuíram uma conversa", mas não
+serve para "este atendimento está esperando alguém" — que é da conta inteira e
+precisa ser visível para todo mundo.
+
+Pendência é um objeto novo, ao lado das notificações, não no lugar delas. Ela
+pertence à conta, aponta para o atendimento de onde nasceu, e todo membro da
+conta vê todas. O estado alterna entre pendente e atendido, nos dois sentidos —
+marcar como atendido por engano tem que ter volta — e cada mudança registra quem
+fez e quando. Botões para marcar como atendido e para devolver a pendente.
+
+As notificações pessoais continuam como estão: conversation_assigned segue
+pessoal, com read_at, sem mudança nenhuma.
+
+A página de notificações passa a mostrar as duas seções, com as pendências em
+cima, porque são elas que exigem ação. Os follow-ups pendentes, que já aparecem
+nessa página numa seção própria, são a primeira fonte de pendência e passam a
+usar esse mecanismo.
+```
+
+---
+
+## 8. `ai-conversation-controls`
+
+**Branch:** `feat/ai-conversation-controls`
+**Specs:** `ai-assistant`, `whatsapp-messaging`, `inbox`
+**Depende de:** 7
+
+### Decisões
+
+- Todo envio ao gateway leva um `delay` aleatório entre 3000 e 5000 ms. O
+  campo é nativo do UAZAPI e já exibe "Digitando…" durante a espera — o
+  servidor não bloqueia. Broadcasts ficam de fora: já têm ritmo próprio.
+- Botão de ligar e desligar a IA por atendimento, sobre a coluna
+  `conversations.ai_autoreply_disabled`, que já existe desde a migration 029.
+- Depois que um agente envia uma mensagem manual, a IA fica parada por 24 horas
+  naquele atendimento. O prazo é configuração da conta, com 24 h de padrão.
+- Só mensagem manual pausa. Abrir, ler ou atribuir não pausam.
+- O gate `if (conv.assigned_agent_id) return;` em `auto-reply.ts` sai: atribuir
+  deixa de parar a IA.
+- O banner do atendimento diz por que a IA está ativa ou parada, e quanto falta
+  para a pausa acabar.
+- Quando a IA pede transferência, nasce uma pendência (change 7) — hoje, sem
+  `handoff_agent_id` configurado, a conversa é marcada e ninguém é avisado.
+
+### Prompt para o `opsx:propose`
+
+```
+Dar controle operacional sobre a IA em cada atendimento, e fazer com que ela
+escreva com ritmo humano.
+
+Primeiro, o ritmo. Todo envio de mensagem ao UAZAPI passa a levar um delay
+aleatório entre 3000 e 5000 milissegundos. O UAZAPI tem um campo `delay` nativo
+no payload de envio que já mostra "Digitando..." para o lead durante a espera —
+usar esse campo, nunca um timer no servidor, senão o webhook e a interface
+travam junto. Broadcasts ficam de fora: já têm o próprio controle de ritmo.
+
+Segundo, um botão por atendimento que mostra se a IA está ativa ali e permite
+parar ou reativar. A coluna `conversations.ai_autoreply_disabled` já existe
+desde a migration 029 e é exatamente isso; falta a interface e falta ela ser
+reversível pelo agente.
+
+Terceiro, pausa automática. Depois que um agente envia uma mensagem manual num
+atendimento, a IA fica parada ali por 24 horas. O prazo é configuração da conta,
+guardado junto das demais configurações da IA, com 24 horas de padrão. Só
+mensagem manual pausa: abrir a conversa, ler ou se atribuir a ela não pausam
+nada, porque todo mundo abre conversa sem intenção de assumir.
+
+Quarto, tirar o gate de atribuição. Hoje `src/lib/ai/auto-reply.ts` tem
+`if (conv.assigned_agent_id) return;` — ter dono humano cala a IA. Isso sai. O
+que segura a IA passa a ser o botão, a pausa de 24 horas, o teto de respostas
+por conversa e o handoff que a própria IA pede.
+
+O banner do atendimento precisa dizer por que a IA está ativa ou parada, e
+quanto tempo falta quando a pausa é automática. Nunca deve ser surpresa.
+
+Por último, quando a IA pede transferência ela hoje marca a conversa, atribui ao
+agente de handoff se houver um configurado, e não avisa mais ninguém — se não
+houver, ninguém fica sabendo. Passa a criar uma pendência da conta, visível para
+todos no painel de notificações.
+```
+
+---
+
+## 9. `ai-agent-prompt-builder`
+
+**Branch:** `feat/ai-agent-prompt-builder`
+**Specs:** `ai-assistant`
+**Depende de:** 3, 8
+
+### Decisões
+
+- A configuração do agente deixa de ser um textarea livre e vira um formulário
+  em passos, dentro de um modal: Identidade, Clínica, Procedimentos (lista),
+  Especialidade, Objeções.
+- O template do prompt fica fixo no código. As regras de publicidade médica
+  (CFM 1.974/2011) não podem ser editáveis, e um template no código melhora
+  todas as contas de uma vez quando é atualizado.
+- O prompt final é montado na geração, não guardado como texto.
+- A edição livre continua existindo, mas só para operador Effect.
+- A ferramenta `adicionar_nome` passa a existir: a IA grava o nome do lead
+  **só** quando o contato ainda não tem nome, e nunca sobrescreve um nome
+  digitado por uma pessoa. A validação descrita no prompt ("Ana" sim, "quero
+  agendar" não) vira código, não confiança no modelo.
+
+### Prompt para o `opsx:propose`
+
+```
+Trocar a configuração do agente de atendimento por um formulário guiado, com o
+template do prompt fixo no código.
+
+Hoje a configuração do agente é um textarea livre (`ai_configs.system_prompt`):
+o cliente escreve o que quiser e o resultado é imprevisível. O template que
+queremos usar é longo, tem por volta de trinta variáveis e traz regras que não
+podem ser editadas por ninguém.
+
+O template passa a viver no código, não no banco. O cliente preenche só as
+variáveis, num modal em passos: Identidade (nome do assistente, nome da clínica,
+gênero dos artigos), Clínica (profissional e registro, endereço, dias e horários
+de atendimento, valor da consulta, formas de pagamento, WhatsApp, Instagram),
+Procedimentos (uma lista de itens com nome, descrição e benefício, que o cliente
+adiciona e remove), Especialidade (perfil do paciente ideal, diferenciais do
+profissional, sinais de emergência) e Objeções (as objeções mais comuns e como
+responder).
+
+O prompt final é montado na hora da geração a partir do template mais os valores
+preenchidos. Não é salvo como texto — assim, melhorar o template melhora todas
+as contas de uma vez, sem editar conta por conta.
+
+As regras de publicidade médica (CFM 1.974/2011) que já são parte fixa do
+scaffold continuam fixas e fora do alcance do formulário, como já são hoje.
+
+A edição livre do prompt continua existindo, mas só para operador de plataforma,
+não para o cliente.
+
+O template descreve duas ferramentas. `transferir_atendimento` já existe no
+código como o sentinela de handoff. `adicionar_nome` não existe e passa a
+existir: quando o lead informa o próprio nome, a IA grava esse nome no contato —
+mas só quando o contato ainda não tem nome, e nunca por cima de um nome que uma
+pessoa digitou. A validação que o template descreve em prosa ("Ana" é nome,
+"quero agendar" não é) tem que ser código nosso, não confiança no modelo.
+```
+
+---
+
+## 10. `lost-deal-stops-meta-conversion`
+
+**Branch:** `feat/lost-deal-stops-meta-conversion`
+**Specs:** `meta-conversions`, `deals`; verbete do `CONTEXT.md`
+**Depende de:** nada
+
+### Decisões
+
+- Marcar um negócio como perdido cancela a conversão que ainda estiver à espera
+  de envio e retira o controle de marcação do card.
+- O gatilho é `status = lost`, não a etapa "Perdido" do quadro. A etapa é
+  organização do time; o status é a decisão.
+- Conversão já enviada fica. Não existe desfazer na Meta, e apagar o registro
+  mentiria sobre o que foi enviado.
+- **Revoga uma decisão anterior**: `meta-conversions/spec.md` (requisito na
+  linha 27) e o verbete "Conversion mark" do `CONTEXT.md` dizem hoje que a
+  marcação é independente do status e que um negócio perdido pode ser marcado.
+  Deixa de valer.
+
+### Prompt para o `opsx:propose`
+
+```
+Parar de enviar conversão para a Meta quando o negócio é dado como perdido.
+
+Hoje a spec de meta-conversions diz, e o CONTEXT.md repete no verbete
+"Conversion mark", que a marcação de conversão é independente do status do
+negócio — um negócio perdido pode ser marcado, e mudar o status não altera
+marcação nenhuma. Foi decisão deliberada, e esta change a revoga: se a venda
+morreu, a Meta não deve aprender com aquele clique.
+
+Marcar um negócio como perdido passa a cancelar a conversão que ainda estiver à
+espera de envio e a retirar o controle de marcação do card. O gatilho é o status
+`lost`, não a etapa "Perdido" do quadro — a etapa é organização visual do time,
+o status é a decisão.
+
+Conversão já enviada fica como está. Não existe desfazer do lado da Meta, e
+apagar o registro mentiria sobre o que de fato foi enviado.
+
+Reabrir um negócio perdido devolve o controle de marcação. A conversão cancelada
+não volta sozinha: quem reabriu marca de novo se quiser, e aí vale a regra de
+sempre sobre o clique estar ou não velho demais para a Meta aceitar.
+
+Atualizar o verbete "Conversion mark" do CONTEXT.md junto, já que a frase "a
+lost one marked" deixa de ser verdade.
+```
+
+---
+
+## 11. `demo-account-seed`
+
+**Branch:** `feat/demo-account-seed`
+**Specs:** `provisioning`, `admin-console`
+**Depende de:** 3, 5, 6
+
+### Decisões
+
+- Caixa opcional no formulário de provisionamento **e** botão na página da
+  conta no `/admin`, os dois chamando a mesma rotina, mais um botão para
+  remover os dados de demonstração.
+- Tudo o que a rotina cria carrega marcação `is_demo`, para a remoção ser
+  exata em vez de arqueologia.
+- Conteúdo: 8 contatos, 8 negócios espalhados por todas as etapas do funil que
+  a conta escolheu, conversas com histórico de mensagens, 2 agendamentos
+  futuros e 3 follow-ups pendentes na fila.
+
+### Prompt para o `opsx:propose`
+
+```
+Popular uma conta com dados de demonstração, para o cliente conseguir testar o
+produto antes de ter movimento de verdade.
+
+Uma conta recém-provisionada está vazia: funil sem cards, caixa de entrada sem
+conversas, fila de follow-up sem nada. O cliente entra e não tem o que olhar,
+nem como experimentar aprovar um lembrete.
+
+Uma rotina de semeadura, com dois gatilhos: uma caixa opcional no formulário de
+provisionamento, para já nascer povoada, e um botão na página da conta dentro do
+/admin, para semear depois. Mais um terceiro botão, que remove os dados de
+demonstração.
+
+Tudo o que a rotina cria carrega uma marcação de demonstração — contatos,
+negócios, conversas, mensagens, agendamentos, follow-ups. A remoção apaga
+exatamente o que foi semeado e não encosta em nada que o cliente tenha criado.
+Sem essa marcação, remover vira arqueologia.
+
+O que a rotina cria: oito contatos com nome e telefone plausíveis, oito negócios
+espalhados por todas as etapas do funil que aquela conta escolheu, conversas com
+histórico de mensagens trocadas nos dois sentidos, dois agendamentos futuros e
+três follow-ups pendentes na fila esperando aprovação — que é justamente o que
+dá para experimentar aprovar, rejeitar e editar.
+
+Nenhuma mensagem é enviada de verdade em nenhum momento: os dados são semeados
+direto no banco, o gateway do WhatsApp não é acionado.
+```
