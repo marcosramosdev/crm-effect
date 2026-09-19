@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   eventsUpdate: vi.fn(),
   eventsError: null as { message: string } | null,
   canceledRows: [] as { id: string }[],
+  disconnectInstance: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -21,6 +22,11 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/provisioning/platform-admins", () => ({
   resolvePlatformOperator: mocks.resolvePlatformOperator,
+}));
+
+vi.mock("@/lib/whatsapp/instance", () => ({
+  disconnectInstance: mocks.disconnectInstance,
+  instanceName: (accountId: string) => `wacrm-${accountId}`,
 }));
 
 vi.mock("@/lib/provisioning/admin-client", () => ({
@@ -70,6 +76,8 @@ beforeEach(() => {
   mocks.eventsUpdate.mockReset();
   mocks.eventsError = null;
   mocks.canceledRows = [];
+  mocks.disconnectInstance.mockReset();
+  mocks.disconnectInstance.mockResolvedValue({ orphan: null });
   mocks.getUser.mockResolvedValue({
     data: { user: { email: "ops@effect.dev" } },
   });
@@ -151,6 +159,46 @@ describe("PATCH /api/admin/accounts/[id]", () => {
         canceledConversions: null,
       });
     });
+
+    it("tears down the account's instance once", async () => {
+      await call({ deactivated: true });
+      expect(mocks.disconnectInstance).toHaveBeenCalledTimes(1);
+      const [, accountId] = mocks.disconnectInstance.mock.calls[0];
+      expect(accountId).toBe("acct-1");
+    });
+
+    it("returns 200 with a warning naming the instance when the teardown reports an orphan", async () => {
+      mocks.disconnectInstance.mockResolvedValue({
+        orphan: { instanceId: "inst-1", name: "wacrm-acct-1" },
+      });
+      const res = await call({ deactivated: true });
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { ok: boolean; warning?: string };
+      expect(json.ok).toBe(true);
+      expect(json.warning).toContain("wacrm-acct-1");
+      expect(json.warning).toContain("inst-1");
+    });
+
+    it("still returns 200 with a warning when the teardown throws", async () => {
+      mocks.disconnectInstance.mockRejectedValue(new Error("db down"));
+      const res = await call({ deactivated: true });
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { ok: boolean; warning?: string };
+      expect(json.ok).toBe(true);
+      expect(json.warning).toContain("wacrm-acct-1");
+    });
+
+    it("lets the conversion-cancel warning win when both the cancel and the teardown fail", async () => {
+      mocks.eventsError = { message: "boom" };
+      mocks.disconnectInstance.mockResolvedValue({
+        orphan: { instanceId: "inst-1", name: "wacrm-acct-1" },
+      });
+      const res = await call({ deactivated: true });
+      const json = (await res.json()) as { warning?: string };
+      expect(json.warning).toBe(
+        "Conversions waiting to be delivered could not be cancelled",
+      );
+    });
   });
 
   describe("reactivate", () => {
@@ -161,6 +209,11 @@ describe("PATCH /api/admin/accounts/[id]", () => {
         deactivated_at: null,
       });
       expect(mocks.eventsUpdate).not.toHaveBeenCalled();
+    });
+
+    it("calls no teardown", async () => {
+      await call({ deactivated: false });
+      expect(mocks.disconnectInstance).not.toHaveBeenCalled();
     });
   });
 

@@ -207,6 +207,7 @@ export function AccountLifecycle({
             <p className="text-destructive text-xs">
               {t("confirmPrompt", { name })}
             </p>
+            <p className="text-destructive text-xs">{t("confirmConnection")}</p>
             {waitingConversions > 0 && (
               <p className="text-destructive text-xs">
                 {t("confirmConversions", { count: waitingConversions })}

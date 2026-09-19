@@ -22,6 +22,12 @@ import { createClient } from "@/lib/supabase/server";
 import { UnauthorizedError, ForbiddenError, toErrorResponse } from "@/lib/auth/account";
 import { resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
+import { disconnectInstance, instanceName } from "@/lib/whatsapp/instance";
+
+/** Message for an orphan left on the gateway — see design.md D2. */
+function orphanWarning(orphan: { instanceId: string; name: string }): string {
+  return `Instance ${orphan.name} (${orphan.instanceId}) could not be deleted on the gateway; remove it by hand.`;
+}
 
 interface AccountPatchBody {
   name?: unknown;
@@ -91,7 +97,8 @@ export async function PATCH(
     // state migration 049 already defines for a conversion nobody will
     // deliver. Reactivation does not revive them, so this runs on the
     // deactivate branch only.
-    let canceledConversions = 0;
+    let canceledConversions: number | null = 0;
+    let warning: string | undefined;
     if (deactivating) {
       const { data, error: cancelErr } = await db
         .from("meta_capi_events")
@@ -107,20 +114,40 @@ export async function PATCH(
           "[admin/accounts] deactivated, but cancelling conversions failed:",
           cancelErr.message,
         );
-        return NextResponse.json(
-          {
-            ok: true,
-            deactivated: true,
-            canceledConversions: null,
-            warning: "Conversions waiting to be delivered could not be cancelled",
-          },
-          { status: 200 },
-        );
+        canceledConversions = null;
+        warning = "Conversions waiting to be delivered could not be cancelled";
+      } else {
+        canceledConversions = data?.length ?? 0;
       }
-      canceledConversions = data?.length ?? 0;
+
+      // The instance must not outlive the account's time in service
+      // (specs/whatsapp-connection, "Instance teardown when an account
+      // leaves service"). A gateway or `whatsapp_config` failure here
+      // must never turn a deactivation that already landed into a 500
+      // (specs/admin-console, "A gateway failure does not block a
+      // deactivation") — so it's caught, not awaited into the outer
+      // try/catch. The conversion-cancel warning wins when both fire
+      // (design.md D4): it is the one with money attached.
+      try {
+        const { orphan } = await disconnectInstance(db, accountId);
+        if (orphan && !warning) warning = orphanWarning(orphan);
+      } catch (err) {
+        console.error(
+          "[admin/accounts] deactivated, but instance teardown failed:",
+          err instanceof Error ? err.message : err,
+        );
+        if (!warning) {
+          warning = `Could not confirm the gateway instance ${instanceName(accountId)} was released; check it by hand in UAZAPI.`;
+        }
+      }
     }
 
-    return NextResponse.json({ ok: true, canceledConversions });
+    return NextResponse.json({
+      ok: true,
+      ...(canceledConversions === null ? { deactivated: true } : {}),
+      canceledConversions,
+      ...(warning ? { warning } : {}),
+    });
   } catch (err) {
     return toErrorResponse(err);
   }
