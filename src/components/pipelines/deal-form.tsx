@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { setDealArchived } from "@/lib/inbox/deals";
 import { useAuth } from "@/hooks/use-auth";
 import { fromZonedInputValue, toZonedInputValue } from "@/lib/time/account-tz";
+import { formatDate } from "@/lib/format";
+import { memberLabel } from "@/lib/account/members";
 import { useCan } from "@/hooks/use-can";
 import {
   parseDealFieldValue,
@@ -35,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
   Check,
   X,
@@ -76,6 +79,7 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const t = useTranslations("Pipelines.form");
+  const tCommon = useTranslations("Common");
   const supabase = createClient();
   const { accountId, defaultCurrency, timeZone } = useAuth();
   const canEdit = useCan("send-messages");
@@ -690,12 +694,12 @@ export function DealForm({
                 <Label className="text-muted-foreground">
                   {t("scheduledAt")}
                 </Label>
-                <Input
-                  type="datetime-local"
+                <DateTimePicker
                   value={scheduledAt}
                   disabled={disabled}
-                  onChange={(e) => setScheduledAt(e.target.value)}
-                  className="border-border bg-muted text-foreground"
+                  onChange={setScheduledAt}
+                  aria-label={t("scheduledAt")}
+                  className="border-border bg-muted text-foreground w-full"
                 />
               </div>
 
@@ -748,7 +752,7 @@ export function DealForm({
                   <option value="">{t("unassigned")}</option>
                   {profiles.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.full_name || p.email}
+                      {memberLabel(p, tCommon("unnamedMember"))}
                     </option>
                   ))}
                 </select>
@@ -934,16 +938,13 @@ export function DealForm({
                           </div>
                           <p className="text-muted-foreground mt-1.5 text-xs">
                             {authorName(note.user_id)} ·{" "}
-                            {new Date(note.created_at).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )}
+                            {formatDate(note.created_at, undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </p>
                         </div>
                       ))

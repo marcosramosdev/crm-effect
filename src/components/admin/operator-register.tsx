@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import type { OperatorRow } from "@/lib/admin/operators";
 import type { PlatformOperatorRole } from "@/lib/provisioning/platform-admins";
+import { formatDateTime } from "@/lib/format";
 
 // The operator register: who can reach /admin, and at which role
 // (admin-console spec.md, "The console carries the register of
@@ -233,7 +234,7 @@ export function OperatorRegister({
                       ? t("seededHint")
                       : t("registeredBy", {
                           name: op.createdByName ?? t("unknownRegistrar"),
-                          date: op.createdAt ? new Date(op.createdAt).toLocaleString() : "",
+                          date: op.createdAt ? formatDateTime(op.createdAt) : "",
                         })}
                   </p>
                 </div>

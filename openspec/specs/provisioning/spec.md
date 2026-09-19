@@ -145,11 +145,10 @@ SHALL NOT be reported as provisioned unless every one exists:
 - a sign-in identity for the client's e-mail address, already confirmed, whose
   password is the one the operator chose — so the client can sign in
   immediately with no confirmation e-mail;
-- an account carrying the default timezone, named after the clinic name when
-  one was supplied and after the local part of the client's e-mail address when
-  one was not — an account SHALL never be created nameless;
-- the account's recorded specialty, with its free text when the specialty is
-  "Outros";
+- an account carrying the default timezone and the default currency, named
+  after the clinic name when one was supplied and after the local part of the
+  client's e-mail address when one was not — an account SHALL never be created
+  nameless;
 - the client as that account's owner;
 - one pipeline named "Funil de vendas", seeded from the chosen funnel model's
   stages;
@@ -223,6 +222,36 @@ and password so they can deliver them through their own channel.
 - **WHEN** a provision succeeds
 - **THEN** the client receives no message from the system, and the credentials
   exist only on the operator's screen
+
+### Requirement: A new account's default currency is Brazilian Real
+
+Every account created after this change SHALL carry Brazilian Real (`BRL`) as
+its default currency unless a currency is supplied explicitly at creation, and
+that default SHALL hold whichever path created the account. An account that
+already exists SHALL keep the currency it holds: no migration, backfill or
+deployment step SHALL rewrite the currency of an existing account, because
+reinterpreting the stored value of its deals in another currency is silently
+destructive. An account's owner SHALL remain free to change the currency
+themselves in settings.
+
+#### Scenario: Operator provisions a new account
+
+- **WHEN** an operator provisions an account and supplies no currency
+- **THEN** the account's default currency is `BRL`, and new deals in it are
+  valued and displayed in Brazilian Real
+
+#### Scenario: Account that predates the change
+
+- **WHEN** an account created before this change holds `USD` as its default
+  currency
+- **THEN** it still holds `USD` afterwards, and the displayed value of every
+  deal in it is unchanged
+
+#### Scenario: Owner changes the account currency
+
+- **WHEN** the owner of an account selects a different currency in settings
+- **THEN** the account carries the selected currency, and the change is not
+  undone by any later deployment
 
 ### Requirement: A partial provision is reported and cleaned up
 

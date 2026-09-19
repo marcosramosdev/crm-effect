@@ -9,6 +9,7 @@ import { Copy, Loader2, PowerOff, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDateTime } from "@/lib/format";
 
 // The account's lifecycle: its name, its owner's password, and whether
 // it is in service (admin-console spec.md). Nothing here deletes an
@@ -179,7 +180,7 @@ export function AccountLifecycle({
           <p className="text-muted-foreground text-xs">
             {isDeactivated
               ? t("deactivatedDesc", {
-                  date: new Date(deactivatedAt as string).toLocaleString(),
+                  date: formatDateTime(deactivatedAt as string),
                 })
               : t("activeDesc")}
           </p>

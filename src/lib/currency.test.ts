@@ -9,13 +9,15 @@ import {
 describe("formatCurrency", () => {
   it("formats whole amounts with no minor units", () => {
     // Use a non-breaking-space-tolerant check: Intl may insert NBSP.
+    // Grouping separator is "." under the app's pt-BR locale.
     const out = formatCurrency(1234, "USD");
-    expect(out).toContain("1,234");
-    expect(out).not.toContain(".00");
+    expect(out).toContain("1.234");
+    expect(out).not.toContain(",00");
   });
 
-  it("defaults to USD when no currency is given", () => {
+  it("defaults to DEFAULT_CURRENCY (BRL) when no currency is given", () => {
     expect(formatCurrency(10)).toBe(formatCurrency(10, DEFAULT_CURRENCY));
+    expect(formatCurrency(10)).toContain("R$");
   });
 
   it("treats an empty-string currency as the default", () => {
@@ -30,13 +32,13 @@ describe("formatCurrency", () => {
     // Intl is lenient here — it uses the code as the symbol.
     const out = formatCurrency(1234, "ZZZ");
     expect(out).toContain("ZZZ");
-    expect(out).toContain("1,234");
+    expect(out).toContain("1.234");
   });
 
   it("never throws on a structurally invalid code (no DB CHECK on deals.currency)", () => {
     for (const bad of ["United States", "US", "USDD", "12", "u$d"]) {
       expect(() => formatCurrency(1234, bad)).not.toThrow();
-      expect(formatCurrency(1234, bad)).toContain("1,234");
+      expect(formatCurrency(1234, bad)).toContain("1.234");
     }
   });
 

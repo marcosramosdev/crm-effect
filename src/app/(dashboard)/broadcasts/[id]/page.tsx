@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getBroadcastStatus, getRecipientStatus } from "@/lib/broadcast-status";
+import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
 interface StatCardProps {
@@ -60,7 +61,7 @@ function StatCard({ label, value, total, icon, color }: StatCardProps) {
         <span className="text-muted-foreground text-xs">{pct}%</span>
       </div>
       <p className="text-foreground mt-3 text-2xl font-bold">
-        {value.toLocaleString()}
+        {formatNumber(value)}
       </p>
       <p className="text-muted-foreground text-xs">{label}</p>
     </div>
@@ -101,7 +102,7 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
                   style={{ width: `${pctOfMax}%` }}
                 />
                 <span className="text-foreground absolute inset-0 flex items-center px-3 text-xs font-medium">
-                  {step.value.toLocaleString()}
+                  {formatNumber(step.value)}
                   <span className="text-muted-foreground/80 ml-2">
                     ({pctOfSent}%)
                   </span>
@@ -385,7 +386,7 @@ export default function BroadcastDetailPage() {
               <span>-</span>
               <span>
                 {t("createdAt", {
-                  date: new Date(broadcast.created_at).toLocaleDateString(),
+                  date: formatDate(broadcast.created_at),
                 })}
               </span>
             </div>
@@ -657,17 +658,17 @@ export default function BroadcastDetailPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.sent_at
-                          ? new Date(recipient.sent_at).toLocaleString()
+                          ? formatDateTime(recipient.sent_at)
                           : "-"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.delivered_at
-                          ? new Date(recipient.delivered_at).toLocaleString()
+                          ? formatDateTime(recipient.delivered_at)
                           : "-"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.read_at
-                          ? new Date(recipient.read_at).toLocaleString()
+                          ? formatDateTime(recipient.read_at)
                           : "-"}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-xs text-red-400">

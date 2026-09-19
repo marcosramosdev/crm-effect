@@ -75,6 +75,7 @@ import {
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { SettingsPanelHead } from "./settings-panel-head";
 import { ROLE_META } from "./role-meta";
+import { formatDate } from "@/lib/format";
 
 interface Member {
   user_id: string;
@@ -106,9 +107,7 @@ const EDITABLE_ROLES: { value: AccountRole }[] = [
 // primary (admin) → muted (agent / viewer).
 
 function fmtDate(iso: string): string {
-  // Match the rest of the dashboard's locale-light formatting.
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return formatDate(iso, undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",

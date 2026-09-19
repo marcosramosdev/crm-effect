@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
+import { formatDate } from "@/lib/format";
 
 interface PeekOk {
   ok: true;
@@ -302,7 +303,7 @@ export default function JoinPage() {
           {ROLE_LABEL[peek.role]}
         </span>
         {t("linkValidUntil", {
-          date: new Date(peek.expires_at).toLocaleDateString(undefined, {
+          date: formatDate(peek.expires_at, undefined, {
             year: "numeric",
             month: "short",
             day: "numeric",

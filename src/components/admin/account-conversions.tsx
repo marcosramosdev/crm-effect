@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CONVERSION_STATUSES, type ConversionStatus } from "@/lib/admin/account-status";
+import { formatDateTime } from "@/lib/format";
 
 export interface ConversionRow {
   id: string;
@@ -83,7 +84,7 @@ export function AccountConversions({ rows }: { rows: ConversionRow[] }) {
                   <Badge variant="outline">{t(`status.${row.status}`)}</Badge>
                 </td>
                 <td className="text-muted-foreground px-3 py-2">
-                  {new Date(row.eventTime).toLocaleString()}
+                  {formatDateTime(row.eventTime)}
                 </td>
                 <td className="text-muted-foreground px-3 py-2">{row.attempts}</td>
                 <td

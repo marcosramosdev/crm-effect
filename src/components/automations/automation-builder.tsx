@@ -70,6 +70,7 @@ import {
   type StepPath,
 } from "@/lib/automations/builder-tree";
 import { cn } from "@/lib/utils";
+import { memberLabel } from "@/lib/account/members";
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -382,7 +383,7 @@ function TagSelect({
         {/* Preserve a saved tag that's since been deleted so editing an
             existing automation doesn't silently drop it. */}
         {value && !selected && (
-          <option value={value}>{t("tags.unknown", { id: value })}</option>
+          <option value={value}>{t("tags.unknown")}</option>
         )}
       </select>
     </div>
@@ -426,7 +427,7 @@ function ContactFieldSelect({
       )}
       {customValue && !knownCustom && (
         <option value={customValue}>
-          {t("fields.unknown", { id: customValue })}
+          {t("fields.unknown")}
         </option>
       )}
     </select>
@@ -445,6 +446,7 @@ function AgentSelect({
   t: ReturnType<typeof useTranslations>;
 }) {
   const { members } = useResources();
+  const tCommon = useTranslations("Common");
   if (members.length === 0) {
     return (
       <Input
@@ -465,12 +467,10 @@ function AgentSelect({
       <option value="">{t("agents.select")}</option>
       {members.map((m) => (
         <option key={m.user_id} value={m.user_id}>
-          {m.full_name || m.email || m.user_id}
+          {memberLabel(m, tCommon("unnamedMember"))}
         </option>
       ))}
-      {value && !selected && (
-        <option value={value}>{t("agents.unknown", { id: value })}</option>
-      )}
+      {value && !selected && <option value={value}>{t("agents.unknown")}</option>}
     </select>
   );
 }
@@ -544,7 +544,7 @@ function DealPipelineFields({
           ))}
           {pipelineId && !selectedPipeline && (
             <option value={pipelineId}>
-              {t("pipelines.unknownPipeline", { id: pipelineId })}
+              {t("pipelines.unknownPipeline")}
             </option>
           )}
         </select>
@@ -570,7 +570,7 @@ function DealPipelineFields({
           ))}
           {stageId && pipelineId && !selectedStage && (
             <option value={stageId}>
-              {t("pipelines.unknownStage", { id: stageId })}
+              {t("pipelines.unknownStage")}
             </option>
           )}
         </select>

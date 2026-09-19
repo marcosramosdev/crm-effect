@@ -46,6 +46,7 @@ export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
   const t = useTranslations("Settings.aiConfig");
+  const tCommon = useTranslations("Common");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -296,7 +297,7 @@ export function AiConfig() {
                   </SelectItem>
                   {members.map((m) => (
                     <SelectItem key={m.user_id} value={m.user_id}>
-                      {memberLabel(m)}
+                      {memberLabel(m, tCommon("unnamedMember"))}
                     </SelectItem>
                   ))}
                 </SelectContent>
