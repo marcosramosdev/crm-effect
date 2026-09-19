@@ -4,7 +4,7 @@ import {
   INCOMPLETE_FEATURES_ENABLED,
   isGatedFeaturePath,
 } from "@/lib/feature-flags";
-import { isPlatformAdmin } from "@/lib/provisioning/platform-admins";
+import { isManager, resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -52,10 +52,17 @@ export async function middleware(request: NextRequest) {
   };
 
   // Root path - send straight to destination instead of bouncing through
-  // /dashboard first (which would then redirect again to /login).
+  // /dashboard first (which would then redirect again to /login). A
+  // platform operator has no client account (platform-admin-profiles
+  // design.md D5) — signing in sends them to /admin, never /dashboard.
   if (request.nextUrl.pathname === "/") {
     const url = request.nextUrl.clone();
-    url.pathname = user ? "/dashboard" : "/login";
+    if (user) {
+      const operator = await resolvePlatformOperator(supabase, user);
+      url.pathname = operator ? "/admin" : "/dashboard";
+    } else {
+      url.pathname = "/login";
+    }
     return withRefreshedCookies(NextResponse.redirect(url));
   }
 
@@ -89,7 +96,9 @@ export async function middleware(request: NextRequest) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`;
       url.search = "";
     } else {
-      url.pathname = "/dashboard";
+      // Platform operators land on /admin instead (design.md D5).
+      const operator = await resolvePlatformOperator(supabase, user);
+      url.pathname = operator ? "/admin" : "/dashboard";
       url.search = "";
     }
     return withRefreshedCookies(NextResponse.redirect(url));
@@ -110,11 +119,15 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url));
   }
 
-  // Internal provisioning console — gated by PLATFORM_ADMINS, not any
-  // account role. A non-listed session gets the same treatment as a
-  // gated feature path, so /admin is indistinguishable from a route
-  // that doesn't exist (client-provisioning spec, "Ordinary client
-  // owner is turned away").
+  // Internal provisioning console — gated by the platform-operator
+  // register (env seed or table row), not any client-account role. A
+  // non-operator session gets the same treatment as a gated feature
+  // path, so /admin is indistinguishable from a route that doesn't
+  // exist (client-provisioning spec, "Ordinary client owner is turned
+  // away"). The operator register itself is manager-only
+  // (admin-console spec.md, "No operator can remove or promote
+  // themselves") — an admin-role operator is bounced back to /admin,
+  // not treated as a non-operator.
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -122,9 +135,19 @@ export async function middleware(request: NextRequest) {
       url.search = "";
       return withRefreshedCookies(NextResponse.redirect(url));
     }
-    if (!isPlatformAdmin(user.email)) {
+    const operator = await resolvePlatformOperator(supabase, user);
+    if (!operator) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
+      url.search = "";
+      return withRefreshedCookies(NextResponse.redirect(url));
+    }
+    if (
+      request.nextUrl.pathname.startsWith("/admin/operators") &&
+      !isManager(operator)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
       url.search = "";
       return withRefreshedCookies(NextResponse.redirect(url));
     }

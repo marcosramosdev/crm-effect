@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/server";
+import { resolvePlatformOperator } from "@/lib/provisioning/platform-admins";
 import { getCurrentAccount, AccountSuspendedError } from "@/lib/auth/account";
 import { DashboardShell } from "./dashboard-shell";
 
@@ -37,6 +39,21 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // A platform operator is a member of no client account (admin-console
+  // spec.md, "An operator never enters a client surface"; design.md
+  // D5/D6). Checked before getCurrentAccount(): handle_new_user already
+  // gave every operator identity an account of its own, so that call
+  // would otherwise resolve successfully for them instead of turning
+  // them away.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const operator = await resolvePlatformOperator(supabase, user);
+  if (operator) {
+    redirect("/admin");
+  }
+
   try {
     await getCurrentAccount();
   } catch (err) {

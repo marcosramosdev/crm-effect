@@ -37,24 +37,70 @@ operator-facing surface SHALL link to sign-up.
 
 ### Requirement: The provisioning console is restricted to platform operators
 
-The system SHALL restrict the provisioning console to a deployment-configured
-allow-list of platform-operator e-mail addresses. Membership in that list SHALL
-be the only credential that grants access; a role inside a client account SHALL
-NOT grant it. A signed-in user whose address is absent from the list SHALL be
-treated as though the console does not exist. Every provisioning action SHALL
-re-check the allow-list on the server rather than trusting a check already made
-by the browser.
+The system SHALL restrict the provisioning console to platform operators. The
+platform-operator allow-list SHALL be the union of two sources: the operator
+records the system holds, and the deployment-configured e-mail addresses that
+seed them. An address present in the deployment configuration SHALL be an
+operator holding the manager role whether or not a record exists for it, so
+that a deployment can never be left with nobody able to sign in. Membership in
+that allow-list SHALL be the only credential that grants access; a role inside
+a client account SHALL NOT grant it, and no client-account role SHALL be able
+to read or write the operator records.
+
+An operator SHALL hold exactly one of two roles:
+
+- **manager** — may do everything an admin may do, and is additionally the only
+  role that may register and remove operators;
+- **admin** — may do everything the console offers concerning client accounts:
+  provision an account, rename it, reissue its owner's password, deactivate it,
+  reactivate it, and edit its advertising configuration.
+
+Neither role SHALL be scoped to the accounts that operator created: every
+operator SHALL see and act on every account.
+
+A signed-in user who is not on the allow-list SHALL be treated as though the
+console does not exist. An operator holding the admin role who reaches a
+manager-only surface SHALL be refused in the same way.
+
+Every operator action SHALL re-check the allow-list and the acting operator's
+role on the server, rather than trusting a check already made by the browser.
 
 #### Scenario: Listed operator reaches the console
 
-- **WHEN** a signed-in user whose e-mail address is on the platform-operator
-  allow-list opens the provisioning console
+- **WHEN** a signed-in user who holds an operator record opens the provisioning
+  console
 - **THEN** the console renders
+
+#### Scenario: Seeded address is an operator with no record
+
+- **WHEN** a signed-in user whose address is in the deployment configuration,
+  and for whom no operator record exists, opens the console
+- **THEN** the console renders and that user is treated as holding the manager
+  role
+
+#### Scenario: Admin does everything concerning client accounts
+
+- **WHEN** an operator holding the admin role provisions an account, renames
+  one, reissues an owner's password, deactivates or reactivates an account, or
+  edits an account's advertising configuration
+- **THEN** each action is accepted
+
+#### Scenario: Admin sees every account
+
+- **WHEN** an operator holding the admin role opens the console on a deployment
+  whose accounts were provisioned by other operators
+- **THEN** every account is listed, with no filtering by who created it
+
+#### Scenario: Admin cannot reach a manager-only surface
+
+- **WHEN** an operator holding the admin role opens or submits to a surface
+  reserved for the manager role
+- **THEN** the request is refused and nothing is written
 
 #### Scenario: Ordinary client owner is turned away
 
-- **WHEN** the owner of a client account, whose address is not on the
-  allow-list, opens the provisioning console
+- **WHEN** the owner of a client account, who is not on the allow-list, opens
+  the provisioning console
 - **THEN** they are sent away with no indication that a console exists, and no
   provisioning data is disclosed
 
@@ -65,22 +111,33 @@ by the browser.
 
 #### Scenario: Server re-checks on submit
 
-- **WHEN** a provisioning submission arrives from a session whose address is not
-  on the allow-list
+- **WHEN** a provisioning submission arrives from a session that is not on the
+  allow-list
 - **THEN** it is rejected and nothing is created, regardless of what the browser
   sent
 
 #### Scenario: Allow-list is unset
 
-- **WHEN** the deployment configures no platform-operator allow-list
+- **WHEN** a deployment holds no operator records and configures no seed
+  addresses
 - **THEN** the console is reachable by nobody
+
+#### Scenario: A client session cannot read the operator records
+
+- **WHEN** a signed-in user who is not an operator attempts to read the operator
+  records
+- **THEN** the attempt is refused and no operator's name, address or role is
+  disclosed
 
 ### Requirement: One submission provisions a complete account
 
-The system SHALL accept, in one provisioning submission: the clinic name, the
-client's full name, the client's e-mail address, an operator-chosen password,
-the clinic specialty, the assistant's initial persona text, and the account's
-advertising dataset identifier and access token.
+The system SHALL require, in a provisioning submission, only the client's
+e-mail address and an operator-chosen password. It SHALL additionally accept,
+all of them optional: the clinic name, the client's full name, the assistant's
+initial persona text, and the account's advertising dataset identifier and
+access token. The clinic specialty SHALL always carry a value, because it
+selects the pipeline the account is born with; when the operator chooses none,
+the system SHALL use a stated default template.
 
 A successful submission SHALL produce all of the following, and the account
 SHALL NOT be reported as provisioned unless every one exists:
@@ -88,26 +145,40 @@ SHALL NOT be reported as provisioned unless every one exists:
 - a sign-in identity for the client's e-mail address, already confirmed, whose
   password is the one the operator chose — so the client can sign in
   immediately with no confirmation e-mail;
-- an account named after the clinic, carrying the default timezone;
+- an account carrying the default timezone, named after the clinic name when
+  one was supplied and after the local part of the client's e-mail address when
+  one was not — an account SHALL never be created nameless;
 - the client as that account's owner;
 - one pipeline seeded from the chosen specialty's stage template;
 - a messaging gateway instance belonging to that account, awaiting the client's
   scan;
 - the account's inbound-lead landing setting pointed at the seeded pipeline's
   system stage;
-- an assistant configuration carrying the supplied persona, with automatic
-  replies off and draft suggestions on;
-- the supplied advertising credentials, stored encrypted.
+- an assistant configuration carrying the supplied persona, or an empty persona
+  when none was supplied, with automatic replies off and draft suggestions on;
+- any supplied advertising credentials, stored encrypted.
 
 The system SHALL NOT send any e-mail as part of provisioning. After a
 successful provision the operator SHALL be shown the client's e-mail address
 and password so they can deliver them through their own channel.
+
+#### Scenario: Address and password alone provision an account
+
+- **WHEN** an operator submits only an e-mail address and a password
+- **THEN** every item listed above exists, the account is named after the
+  e-mail's local part, and the operator is shown the address and password to
+  deliver
 
 #### Scenario: Successful provision produces a usable account
 
 - **WHEN** an operator submits the provisioning form with valid values
 - **THEN** every item listed above exists, and the operator is shown the
   client's sign-in address and password
+
+#### Scenario: Supplied clinic name wins over the fallback
+
+- **WHEN** an operator provisions an account supplying a clinic name
+- **THEN** the account carries that name, not the e-mail's local part
 
 #### Scenario: Client signs in with the delivered credentials
 
@@ -128,6 +199,12 @@ and password so they can deliver them through their own channel.
 - **WHEN** an operator submits a password shorter than the minimum the sign-in
   system accepts
 - **THEN** the submission is refused before anything is created
+
+#### Scenario: Missing address or password is refused
+
+- **WHEN** an operator submits the form with either the e-mail address or the
+  password blank
+- **THEN** the submission is refused and nothing is created
 
 #### Scenario: No e-mail is sent
 
@@ -168,20 +245,32 @@ than reporting a clean failure.
 
 ### Requirement: Specialty templates seed the pipeline
 
-The system SHALL offer a fixed set of specialty pipeline templates, defined in
-the application rather than edited by operators or clients. Every template's
-first stage SHALL be the system stage named "Em contato". Choosing a template
-at provisioning time SHALL create the pipeline with that template's stages, in
-the template's order.
+The system SHALL offer exactly two specialty pipeline templates — the dentist
+and the physician — defined in the application rather than edited by operators
+or clients. Every template's first stage SHALL be the system stage named "Em
+contato". Choosing a template at provisioning time SHALL create the pipeline
+with that template's stages, in the template's order. When the operator chooses
+nothing, the dentist template SHALL be used.
 
 After provisioning, the client SHALL be free to rename, reorder, add, and
 remove stages — except the system stage, which is protected.
+
+#### Scenario: Operator picks one of the two
+
+- **WHEN** an operator opens the provisioning form
+- **THEN** it offers the dentist and the physician templates and no others
 
 #### Scenario: Chosen template shapes the pipeline
 
 - **WHEN** an operator provisions an account choosing the dentist template
 - **THEN** the account's pipeline carries exactly that template's stages in that
   order, beginning with "Em contato"
+
+#### Scenario: Unchosen specialty falls back
+
+- **WHEN** an operator provisions an account without touching the specialty
+  control
+- **THEN** the account's pipeline carries the dentist template's stages
 
 #### Scenario: Every template starts with the system stage
 
@@ -279,6 +368,9 @@ customer information is included in reported conversions.
 
 All of these SHALL be optional at provisioning time: an account with no dataset
 identifier is provisioned successfully and simply does not report conversions.
+The provisioning form SHALL present them as a secondary, collapsed section, so
+that the fields an operator fills in later never stand between them and
+creating an account.
 
 #### Scenario: Provisioning without advertising configuration
 
@@ -286,6 +378,12 @@ identifier is provisioned successfully and simply does not report conversions.
   empty
 - **THEN** the account is created and usable, and is reported as not yet
   reporting conversions
+
+#### Scenario: Optional fields do not obstruct creation
+
+- **WHEN** an operator opens the provisioning form
+- **THEN** the e-mail address, the password and the specialty are the only
+  controls in view, and the remaining fields are behind one expandable section
 
 #### Scenario: Event name defaults
 

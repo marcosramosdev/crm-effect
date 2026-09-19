@@ -1,6 +1,7 @@
 import { ProvisioningForm } from "@/components/admin/provisioning-form";
 import { AccountList } from "@/components/admin/account-list";
 import { supabaseAdmin } from "@/lib/provisioning/admin-client";
+import { getSeedOperatorEmails } from "@/lib/provisioning/platform-admins";
 import {
   type AccountMetaRow,
   type ConnectionState,
@@ -14,19 +15,46 @@ import {
 // stale until the next deploy instead of reflecting live rows.
 export const dynamic = "force-dynamic";
 
-// The /admin guard already ran in middleware.ts (PLATFORM_ADMINS) —
-// this page assumes it only ever renders for a listed operator. Reads
-// through the service-role client, like provisioning: an operator has
-// no membership in the accounts being listed, so the accounts RLS
-// policies would otherwise return nothing (design.md D7 of
-// meta-capi-qualified-lead).
+/**
+ * Every operator's own `owner_user_id` — recorded operators plus
+ * addresses the deployment seeds, resolved through `profiles` the same
+ * way (platform-admin-profiles design.md D4). The account
+ * `handle_new_user` creates for an operator's sign-in identity is not
+ * a client and must not appear in the roster.
+ */
+async function loadOperatorOwnerIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+
+  const { data: opRows } = await db.from("platform_operators").select("user_id");
+  for (const r of opRows ?? []) ids.add(r.user_id as string);
+
+  const seedEmails = getSeedOperatorEmails();
+  if (seedEmails.length) {
+    const orFilter = seedEmails.map((e) => `email.ilike.${e}`).join(",");
+    const { data: profileRows } = await db.from("profiles").select("user_id").or(orFilter);
+    for (const r of profileRows ?? []) ids.add(r.user_id as string);
+  }
+
+  return ids;
+}
+
+// The /admin guard already ran in middleware.ts — this page assumes it
+// only ever renders for an operator. Reads through the service-role
+// client, like provisioning: an operator has no membership in the
+// accounts being listed, so the accounts RLS policies would otherwise
+// return nothing (design.md D7 of meta-capi-qualified-lead).
 async function loadAccountRows(): Promise<AccountMetaRow[]> {
   const db = supabaseAdmin();
+
+  const operatorOwnerIds = await loadOperatorOwnerIds(db);
 
   const { data: accounts } = await db
     .from("accounts")
     .select(
-      "id, name, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
+      "id, name, owner_user_id, meta_dataset_id, meta_access_token, meta_page_id, meta_event_name, meta_test_event_code, meta_send_ph, deactivated_at",
     )
     .order("name");
 
@@ -51,26 +79,28 @@ async function loadAccountRows(): Promise<AccountMetaRow[]> {
 
   const counts = await loadConversionCounts();
 
-  return (accounts ?? []).map((a) => ({
-    id: a.id as string,
-    name: a.name as string,
-    metaDatasetId: (a.meta_dataset_id as string | null) ?? null,
-    // Never the ciphertext itself — only whether one is set (provisioning
-    // spec.md, "Credentials are absent from client responses").
-    hasAccessToken: Boolean(a.meta_access_token),
-    metaPageId: (a.meta_page_id as string | null) ?? null,
-    metaEventName: a.meta_event_name as string,
-    metaTestEventCode: (a.meta_test_event_code as string | null) ?? null,
-    metaSendPh: Boolean(a.meta_send_ph),
-    // An account with no whatsapp_config row at all (a provision that
-    // failed midway) still belongs in the list — it reads as not
-    // connected rather than disappearing.
-    deactivatedAt: (a.deactivated_at as string | null) ?? null,
-    connectionState: connection.get(a.id as string)?.state ?? null,
-    pairedPhone: connection.get(a.id as string)?.phone ?? null,
-    pairedAt: connection.get(a.id as string)?.at ?? null,
-    counts: counts.get(a.id as string) ?? {},
-  }));
+  return (accounts ?? [])
+    .filter((a) => !operatorOwnerIds.has(a.owner_user_id as string))
+    .map((a) => ({
+      id: a.id as string,
+      name: a.name as string,
+      metaDatasetId: (a.meta_dataset_id as string | null) ?? null,
+      // Never the ciphertext itself — only whether one is set (provisioning
+      // spec.md, "Credentials are absent from client responses").
+      hasAccessToken: Boolean(a.meta_access_token),
+      metaPageId: (a.meta_page_id as string | null) ?? null,
+      metaEventName: a.meta_event_name as string,
+      metaTestEventCode: (a.meta_test_event_code as string | null) ?? null,
+      metaSendPh: Boolean(a.meta_send_ph),
+      // An account with no whatsapp_config row at all (a provision that
+      // failed midway) still belongs in the list — it reads as not
+      // connected rather than disappearing.
+      deactivatedAt: (a.deactivated_at as string | null) ?? null,
+      connectionState: connection.get(a.id as string)?.state ?? null,
+      pairedPhone: connection.get(a.id as string)?.phone ?? null,
+      pairedAt: connection.get(a.id as string)?.at ?? null,
+      counts: counts.get(a.id as string) ?? {},
+    }));
 }
 
 /**

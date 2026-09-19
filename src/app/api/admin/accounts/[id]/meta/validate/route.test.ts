@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
-  isPlatformAdmin: vi.fn(),
+  resolvePlatformOperator: vi.fn(),
   update: vi.fn(),
   storedToken: null as string | null,
 }));
@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/provisioning/platform-admins", () => ({
-  isPlatformAdmin: mocks.isPlatformAdmin,
+  resolvePlatformOperator: mocks.resolvePlatformOperator,
 }));
 
 vi.mock("@/lib/provisioning/admin-client", () => ({
@@ -61,7 +61,7 @@ function graphResponse(body: unknown, status = 200) {
 
 beforeEach(() => {
   mocks.getUser.mockResolvedValue({ data: { user: { email: "ops@effect.com" } } });
-  mocks.isPlatformAdmin.mockReturnValue(true);
+  mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
   mocks.update.mockClear();
   mocks.storedToken = null;
 });
@@ -72,7 +72,7 @@ afterEach(() => {
 
 describe("POST /api/admin/accounts/[id]/meta/validate", () => {
   it("rejects a non-operator without calling Meta", async () => {
-    mocks.isPlatformAdmin.mockReturnValue(false);
+    mocks.resolvePlatformOperator.mockResolvedValue(null);
     const fetchMock = graphResponse({});
     vi.stubGlobal("fetch", fetchMock);
 

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
-  isPlatformAdmin: vi.fn(),
+  resolvePlatformOperator: vi.fn(),
   updateUserById: vi.fn(),
   ownerRow: { data: { owner_user_id: "owner-1" }, error: null } as {
     data: { owner_user_id: string } | null;
@@ -20,7 +20,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/provisioning/platform-admins", () => ({
-  isPlatformAdmin: mocks.isPlatformAdmin,
+  resolvePlatformOperator: mocks.resolvePlatformOperator,
 }));
 
 vi.mock("@/lib/provisioning/admin-client", () => ({
@@ -54,13 +54,13 @@ function call(body: unknown) {
 
 beforeEach(() => {
   mocks.getUser.mockReset();
-  mocks.isPlatformAdmin.mockReset();
+  mocks.resolvePlatformOperator.mockReset();
   mocks.updateUserById.mockReset();
   mocks.ownerRow = { data: { owner_user_id: "owner-1" }, error: null };
   mocks.getUser.mockResolvedValue({
     data: { user: { email: "ops@effect.dev" } },
   });
-  mocks.isPlatformAdmin.mockReturnValue(true);
+  mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
   mocks.updateUserById.mockResolvedValue({ data: {}, error: null });
 });
 
@@ -73,7 +73,7 @@ describe("POST /api/admin/accounts/[id]/password", () => {
   });
 
   it("rejects a non-operator session and writes nothing", async () => {
-    mocks.isPlatformAdmin.mockReturnValue(false);
+    mocks.resolvePlatformOperator.mockResolvedValue(null);
     const res = await call({ password: NEW_PASSWORD });
     expect(res.status).toBe(403);
     expect(mocks.updateUserById).not.toHaveBeenCalled();

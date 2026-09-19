@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
-  isPlatformAdmin: vi.fn(),
+  resolvePlatformOperator: vi.fn(),
   provision: vi.fn(),
 }));
 
@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/provisioning/platform-admins", () => ({
-  isPlatformAdmin: mocks.isPlatformAdmin,
+  resolvePlatformOperator: mocks.resolvePlatformOperator,
 }));
 
 vi.mock("@/lib/provisioning/provision", async () => {
@@ -49,7 +49,7 @@ function request(body: unknown) {
 
 beforeEach(() => {
   mocks.getUser.mockReset();
-  mocks.isPlatformAdmin.mockReset();
+  mocks.resolvePlatformOperator.mockReset();
   mocks.provision.mockReset();
 });
 
@@ -67,7 +67,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "not-an-admin@example.com" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(false);
+    mocks.resolvePlatformOperator.mockResolvedValue(null);
 
     const response = await POST(request(VALID_BODY));
 
@@ -83,7 +83,7 @@ describe("POST /api/admin/provision", () => {
       mocks.getUser.mockResolvedValue({
         data: { user: { email: "ops@effect.dev" } },
       });
-      mocks.isPlatformAdmin.mockReturnValue(true);
+      mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
 
       const response = await POST(request({ ...VALID_BODY, [field]: "" }));
 
@@ -96,7 +96,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
     mocks.provision.mockResolvedValue({ email: "cliente1@effect.com" });
 
     const response = await POST(
@@ -122,7 +122,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
 
     const response = await POST(
       request({ ...VALID_BODY, specialty: "astrologer" }),
@@ -136,7 +136,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
     mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
 
     const { metaDatasetId, metaAccessToken, ...withoutMeta } = VALID_BODY;
@@ -157,7 +157,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
 
     const response = await POST(
       request({ ...VALID_BODY, metaEventName: "Lead conversion!" }),
@@ -171,7 +171,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
     mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
 
     const response = await POST(
@@ -188,7 +188,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
     mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
 
     const response = await POST(request(VALID_BODY));
@@ -207,7 +207,7 @@ describe("POST /api/admin/provision", () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
-    mocks.isPlatformAdmin.mockReturnValue(true);
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
     mocks.provision.mockRejectedValue(
       new ProvisionError("provision_gateway", "gateway unreachable", {
         authUserId: "user-1",
