@@ -1983,8 +1983,31 @@
     "clientPassword": "Client password",
     "specialty": "Specialty",
     "specialties": {
+      "social-worker": "Social worker",
+      "biologist": "Biologist",
+      "biomedical-scientist": "Biomedical scientist",
+      "physical-education-professional": "Physical education professional",
+      "nurse": "Nurse",
+      "pharmacist": "Pharmacist",
+      "physiotherapist": "Physiotherapist",
+      "speech-therapist": "Speech therapist",
+      "physician": "Physician",
+      "veterinarian": "Veterinarian",
+      "nutritionist": "Nutritionist",
       "dentist": "Dentist",
-      "physician": "Physician"
+      "psychologist": "Psychologist",
+      "occupational-therapist": "Occupational therapist",
+      "aesthetics-cosmetology": "Aesthetics and cosmetology",
+      "other": "Other"
+    },
+    "specialtyOther": "Which one?",
+    "specialtyOtherPlaceholder": "Describe the specialty",
+    "funnelModel": "Funnel model",
+    "funnelModels": {
+      "model-1": "Model 1",
+      "model-2": "Model 2",
+      "model-3": "Model 3",
+      "model-4": "Model 4"
     },
     "persona": "Assistant persona",
     "metaDatasetId": "Meta dataset ID (optional — can be set later)",
@@ -2073,7 +2096,9 @@
       "conversionsTitle": "Conversions",
       "conversionsDesc": "The 50 most recent conversions recorded for this account.",
       "lifecycleTitle": "Account",
-      "lifecycleDesc": "Name, the client's password, and whether the account is in service."
+      "lifecycleDesc": "Name, the client's password, and whether the account is in service.",
+      "specialtyTitle": "Specialty",
+      "specialtyNone": "No specialty recorded"
     },
     "setup": {
       "whatsappConnected": "Client connected WhatsApp",

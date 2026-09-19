@@ -57,6 +57,23 @@ describe("moveDealStage", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  // deals spec.md — "A 'Perdido' stage organises the board and does not
+  // carry the status": dragging a card into or out of Perdido writes
+  // only stage_id, never status or lost_reason. Perdido is a plain
+  // stage id/name to this function, like any other — the exact-object
+  // assertion above already proves no status field rides along; this
+  // test names the scenario explicitly for traceability.
+  it("moving a deal into or out of the Perdido stage never touches status", async () => {
+    const { db, update } = fakeDb(null);
+
+    await moveDealStage(db, "deal-1", "perdido-stage-id");
+
+    expect(update).toHaveBeenCalledWith({ stage_id: "perdido-stage-id" });
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: expect.anything() }),
+    );
+  });
+
   it("surfaces the error message when the write fails", async () => {
     const { db } = fakeDb({ message: "row-level security" });
 

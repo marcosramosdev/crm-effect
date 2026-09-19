@@ -34,6 +34,7 @@ const VALID_BODY = {
   clientEmail: "jane@example.com",
   clientPassword: "correct-horse",
   specialty: "dentist",
+  funnelModel: "model-1",
   persona: "Friendly dental assistant",
   metaDatasetId: "dataset-1",
   metaAccessToken: "token-1",
@@ -92,7 +93,7 @@ describe("POST /api/admin/provision", () => {
     },
   );
 
-  it("provisions from an address and a password alone", async () => {
+  it("provisions from an address, a password, a specialty and a funnel model", async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { email: "ops@effect.dev" } },
     });
@@ -103,6 +104,8 @@ describe("POST /api/admin/provision", () => {
       request({
         clientEmail: "cliente1@effect.com",
         clientPassword: "correct-horse",
+        specialty: "dentist",
+        funnelModel: "model-1",
       }),
     );
 
@@ -112,7 +115,8 @@ describe("POST /api/admin/provision", () => {
         clientEmail: "cliente1@effect.com",
         clinicName: undefined,
         clientFullName: undefined,
-        specialty: undefined,
+        specialty: "dentist",
+        funnelModel: "model-1",
         persona: "",
       }),
     );
@@ -130,6 +134,64 @@ describe("POST /api/admin/provision", () => {
 
     expect(response.status).toBe(400);
     expect(mocks.provision).not.toHaveBeenCalled();
+  });
+
+  it.each([["specialty"], ["funnelModel"]])(
+    "rejects a submission with no %s before provisioning",
+    async (field) => {
+      mocks.getUser.mockResolvedValue({
+        data: { user: { email: "ops@effect.dev" } },
+      });
+      mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
+
+      const response = await POST(request({ ...VALID_BODY, [field]: "" }));
+
+      expect(response.status).toBe(400);
+      expect(mocks.provision).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an unrecognised funnel model", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
+
+    const response = await POST(request({ ...VALID_BODY, funnelModel: "model-9" }));
+
+    expect(response.status).toBe(400);
+    expect(mocks.provision).not.toHaveBeenCalled();
+  });
+
+  it("rejects 'other' with blank free text", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
+
+    const response = await POST(
+      request({ ...VALID_BODY, specialty: "other", specialtyOther: "" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.provision).not.toHaveBeenCalled();
+  });
+
+  it("accepts 'other' with its free text", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { email: "ops@effect.dev" } },
+    });
+    mocks.resolvePlatformOperator.mockResolvedValue({ role: "admin", seeded: false });
+    mocks.provision.mockResolvedValue({ email: VALID_BODY.clientEmail });
+
+    const response = await POST(
+      request({ ...VALID_BODY, specialty: "other", specialtyOther: "quiropraxia" }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.provision).toHaveBeenCalledWith(
+      expect.objectContaining({ specialty: "other", specialtyOther: "quiropraxia" }),
+    );
   });
 
   it("provisions successfully when both Meta fields are omitted", async () => {
